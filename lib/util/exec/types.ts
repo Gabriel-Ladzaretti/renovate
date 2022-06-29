@@ -28,7 +28,7 @@ export interface DockerOptions {
 }
 
 export interface RawExecOptions extends ChildProcessExecOptions {
-  encoding: string;
+  encoding: BufferEncoding;
 }
 
 export interface ExecResult {
