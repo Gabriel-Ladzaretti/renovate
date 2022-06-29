@@ -11,13 +11,16 @@ void (async () => {
     signal,
   };
 
-  const { stdout, stderr } = await rawExec('npm -v', opts);
-
-  if (stdout) {
-    logger.info(stdout);
-  }
-  if (stderr) {
-    logger.info(stderr);
+  try {
+    const { stdout, stderr } = await rawExec('docker', opts);
+    if (stdout) {
+      logger.info(stdout);
+    }
+    if (stderr) {
+      logger.warn(stderr);
+    }
+  } catch (err) {
+    logger.error(err);
   }
   logger.info('done');
 })();

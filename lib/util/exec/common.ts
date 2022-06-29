@@ -1,25 +1,17 @@
 import { ChildProcess, exec } from 'child_process';
 import type { ExecResult, RawExecOptions } from './types';
 
-const execWrapper = (
+const execPromisify = (
   cmd: string,
   opts: RawExecOptions
 ): Promise<ExecResult> => {
-  const cp: ChildProcess = exec(cmd, opts);
-  return new Promise<ExecResult>((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const stdout: string[] = [];
     const stderr: string[] = [];
-
-    // handle node streams
-    cp.stdout?.on('data', (data: string) => {
-      stdout.push(data);
-    });
-    cp.stderr?.on('data', (data: string) => {
-      stderr.push(data);
-    });
-
-    // handle child process
-    cp.on('error', (error: string) => {
+    const cp: ChildProcess = exec(cmd, opts);
+    cp.stdout?.on('data', (data: string) => stdout.push(data));
+    cp.stderr?.on('data', (data: string) => stderr.push(data));
+    cp.on('error', (error) => {
       reject(error);
     });
     cp.on('close', (code: number) => {
@@ -38,4 +30,4 @@ const execWrapper = (
 export const rawExec: (
   cmd: string,
   opts: RawExecOptions
-) => Promise<ExecResult> = execWrapper;
+) => Promise<ExecResult> = execPromisify;
