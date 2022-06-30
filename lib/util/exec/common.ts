@@ -1,27 +1,37 @@
-import { ChildProcess, exec } from 'child_process';
-import type { ExecResult, RawExecOptions } from './types';
+import { ChildProcess, spawn } from 'child_process';
+import type { ExecResult, RawSpawnOptions } from './types';
 
-const execPromisify = (
+const promisifySpawn = (
   cmd: string,
-  opts: RawExecOptions
+  opts: RawSpawnOptions
 ): Promise<ExecResult> => {
   return new Promise((resolve, reject) => {
-    const stdout: string[] = [];
-    const stderr: string[] = [];
-    const cp: ChildProcess = exec(cmd, opts);
-    cp.stdout?.on('data', (data: string) => stdout.push(data));
-    cp.stderr?.on('data', (data: string) => stderr.push(data));
+    const encoding: BufferEncoding = opts.encoding;
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    const cp: ChildProcess = spawn(cmd, {
+      ...opts,
+      shell: true,
+      detached: true,
+      stdio: ['ignore', 1, 2],
+    });
+
+    // handle node streams
+    cp.stdout?.on('data', (data: Buffer) => stdout.push(data));
+    cp.stderr?.on('data', (data: Buffer) => stderr.push(data));
+
+    // handle child process
     cp.on('error', (error) => {
       reject(error);
     });
-    cp.on('close', (code: number) => {
+    cp.on('exit', (code: number) => {
       if (code !== 0) {
-        reject(stderr.join());
+        reject(Buffer.concat(stderr).toString(encoding));
         return;
       }
       resolve({
-        stderr: stderr.join(),
-        stdout: stdout.join(),
+        stderr: Buffer.concat(stderr).toString(encoding),
+        stdout: Buffer.concat(stdout).toString(encoding),
       });
     });
   });
@@ -29,5 +39,5 @@ const execPromisify = (
 
 export const rawExec: (
   cmd: string,
-  opts: RawExecOptions
-) => Promise<ExecResult> = execPromisify;
+  opts: RawSpawnOptions
+) => Promise<ExecResult> = promisifySpawn;

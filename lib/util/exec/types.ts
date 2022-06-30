@@ -1,4 +1,4 @@
-import type { ExecOptions as ChildProcessExecOptions } from 'child_process';
+import type { SpawnOptions } from 'child_process';
 
 export interface ToolConstraint {
   toolName: string;
@@ -27,7 +27,7 @@ export interface DockerOptions {
   cwd?: Opt<string>;
 }
 
-export interface RawExecOptions extends ChildProcessExecOptions {
+export interface RawSpawnOptions extends SpawnOptions {
   encoding: BufferEncoding;
 }
 

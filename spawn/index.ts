@@ -1,12 +1,12 @@
 import { logger } from '../lib/logger';
 import { rawExec } from '../lib/util/exec/common';
-import type { RawExecOptions } from '../lib/util/exec/types';
+import type { RawSpawnOptions } from '../lib/util/exec/types';
 
 void (async () => {
   const controller = new AbortController();
   const { signal } = controller;
 
-  const opts: RawExecOptions = {
+  const opts: RawSpawnOptions = {
     encoding: 'utf8',
     signal,
   };
