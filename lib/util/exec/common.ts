@@ -2,6 +2,20 @@ import { ChildProcess, exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import type { ExecResult, RawExecOptions, RawSpawnOptions } from './types';
 
+// https://man7.org/linux/man-pages/man7/signal.7.html#NAME
+// Non TERM/CORE signals
+const NONTERM = [
+  'SIGCHLD',
+  'SIGCLD',
+  'SIGCONT',
+  'SIGSTOP',
+  'SIGTSTP',
+  'SIGTTIN',
+  'SIGTTOU',
+  'SIGURG',
+  'SIGWINCH',
+];
+
 function stringify(
   stream: Buffer[],
   encoding: BufferEncoding = 'utf8'
@@ -30,33 +44,29 @@ function promisifySpawn(
 ): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
     const encoding: BufferEncoding = opts.encoding;
-    let cp: ChildProcess;
-
-    opts.detached = true; // force detached
-    if (opts.shell) {
-      const [command, ...args] = cmd.split(/\s+/);
-      cp = spawn(command, args, opts);
-    } else {
-      cp = spawn(cmd, opts);
-    }
+    const [command, ...args] = cmd.split(/\s+/);
+    const cp = spawn(command, args, { ...opts, detached: true }); // force detached
+    const [stdout, stderr] = initStreamListeners(cp); // handle streams
     cp.unref();
-
-    // handle streams
-    const [stdout, stderr] = initStreamListeners(cp);
 
     // handle process events
     cp.on('error', (error) => {
       reject(error.message);
     });
-    cp.on('exit', (code: number) => {
-      if (cp.signalCode) {
+
+    cp.on('exit', (code: number, signal: string) => {
+      if (signal && !NONTERM.includes(signal)) {
         const pid = cp.pid as number;
-        const msg = `pid=${pid} "${cmd}" killed with "${cp.signalCode}"`;
+        const cmd = cp.spawnargs.join(' ');
+        const msg = `PID= ${pid}\nCOMMAND= "${cmd}"\nSignaled with "${signal}"`;
         stderr.push(Buffer.from(msg));
-        process.kill(-(cp.pid as number)); // kill process tree
+        reject(stringify(stderr, encoding));
+        process.kill(-pid); // kill process tree
+        return;
       }
       if (code !== 0) {
         reject(stringify(stderr, encoding));
+        return;
       }
       resolve({
         stderr: stringify(stderr, encoding),
