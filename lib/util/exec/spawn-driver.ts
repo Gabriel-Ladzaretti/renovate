@@ -14,7 +14,7 @@ void (async () => {
     const cmd = 'npm run non-existent-script';
     // const cmd = 'docker';
     // const cmd = 'ls /usr';
-    // const cmd = 'npm run spawn-testing-script'
+    // const cmd = 'npm run spawn-testing-script';
     logger.info(`driver function - RUN - "${cmd}"`);
     const { stdout, stderr } = await rawSpawn(cmd, opts);
     if (stdout) {

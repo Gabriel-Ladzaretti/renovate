@@ -9,17 +9,30 @@ function stringify(
   return Buffer.concat(stream).toString(encoding);
 }
 
+function initStreamListeners(cp: ChildProcess): [Buffer[], Buffer[]] {
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+
+  cp.stdout?.on('data', (data: Buffer) => {
+    // process.stdout.write(data.toString());
+    stdout.push(data);
+  });
+  cp.stderr?.on('data', (data: Buffer) => {
+    // process.stderr.write(data.toString());
+    stderr.push(data);
+  });
+  return [stdout, stderr];
+}
+
 function promisifySpawn(
   cmd: string,
   opts: RawSpawnOptions
 ): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
     const encoding: BufferEncoding = opts.encoding;
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
     let cp: ChildProcess;
-    opts.detached = true; // force detached
 
+    opts.detached = true; // force detached
     if (opts.shell) {
       const [command, ...args] = cmd.split(/\s+/);
       cp = spawn(command, args, opts);
@@ -29,14 +42,7 @@ function promisifySpawn(
     cp.unref();
 
     // handle streams
-    cp.stdout?.on('data', (data: Buffer) => {
-      // process.stdout.write(data.toString());
-      stdout.push(data);
-    });
-    cp.stderr?.on('data', (data: Buffer) => {
-      // process.stderr.write(data.toString());
-      stderr.push(data);
-    });
+    const [stdout, stderr] = initStreamListeners(cp);
 
     // handle process events
     cp.on('error', (error) => {
@@ -44,13 +50,9 @@ function promisifySpawn(
     });
     cp.on('exit', (code: number) => {
       if (cp.signalCode) {
-        stderr.push(
-          Buffer.from(
-            `process pid=${cp.pid as number} "${cmd}" killed with signal "${
-              cp.signalCode
-            }"`
-          )
-        );
+        const pid = cp.pid as number;
+        const msg = `pid=${pid} "${cmd}" killed with "${cp.signalCode}"`;
+        stderr.push(Buffer.from(msg));
         process.kill(-(cp.pid as number)); // kill process tree
       }
       if (code !== 0) {
