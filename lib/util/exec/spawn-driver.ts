@@ -15,7 +15,7 @@ void (async () => {
   cmds.push(['docker', { ...opts, shell: false }]);
   cmds.push(['docker image rm alpine', opts]);
   cmds.push(['docker images', opts]);
-  cmds.push(['docker pull alpine', opts]);
+  cmds.push(['docker pull alpine', { ...opts, timeout: 0 }]);
   cmds.push(['docker images', opts]);
   cmds.push(['npm run spawn-testing-script', opts]);
   cmds.push(['npm run spawn-testing-script', { ...opts, shell: false }]);
