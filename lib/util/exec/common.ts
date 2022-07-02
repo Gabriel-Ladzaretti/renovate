@@ -24,6 +24,12 @@ function stringify(
   return Buffer.concat(stream).toString(encoding);
 }
 
+function getSignalMsg(cp: ChildProcess, signal: string): string {
+  const pid = cp.pid as number;
+  const cmd = cp.spawnargs.join(' ');
+  return `PID= ${pid}\nCOMMAND= "${cmd}"\nSignaled with "${signal}"`;
+}
+
 function initStreamListeners(cp: ChildProcess): [Buffer[], Buffer[]] {
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
@@ -56,11 +62,13 @@ function promisifySpawn(
 
     cp.on('exit', (code: number, signal: string) => {
       if (signal && !NONTERM.includes(signal)) {
-        const pid = cp.pid as number;
-        const cmd = cp.spawnargs.join(' ');
-        const msg = `PID= ${pid}\nCOMMAND= "${cmd}"\nSignaled with "${signal}"`;
-        stderr.push(Buffer.from(msg));
-        process.kill(-pid); // PID range hack; kill process tree
+        try {
+          process.kill(-(cp.pid as number), signal); // PID range hack; signal process tree
+          // eslint-disable-next-line no-empty
+        } catch (err) {
+          // cp is a single node tree, therefore -pid is invalid,
+        }
+        stderr.push(Buffer.from(getSignalMsg(cp, signal)));
         reject(stringify(stderr, encoding));
         return;
       }

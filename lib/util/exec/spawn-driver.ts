@@ -4,30 +4,29 @@ import { rawSpawn } from './common';
 import type { RawSpawnOptions } from './types';
 
 void (async () => {
-  const cmds: string[] = [];
+  const cmds: [string, RawSpawnOptions][] = [];
   const opts: RawSpawnOptions = {
     encoding: 'utf8',
     shell: true,
-    // timeout: 5000
+    timeout: 5000,
   };
   logger.info('driver function - START');
-  logger.info({ options: opts }, 'spawn options');
-  cmds.push('npm run non-existent-script');
-  cmds.push('docker');
-  cmds.push('docker image rm alpine');
-  cmds.push('docker images');
-  cmds.push('docker pull alpine');
-  cmds.push('docker images');
-  cmds.push('npm run spawn-testing-script');
-  cmds.push('ls /usr');
+  cmds.push(['npm run non-existent-script', opts]);
+  cmds.push(['docker', { ...opts, shell: false }]);
+  cmds.push(['docker image rm alpine', opts]);
+  cmds.push(['docker images', opts]);
+  cmds.push(['docker pull alpine', opts]);
+  cmds.push(['docker images', opts]);
+  cmds.push(['npm run spawn-testing-script', opts]);
+  cmds.push(['npm run spawn-testing-script', { ...opts, shell: false }]);
+  cmds.push(['sleep 900', opts]);
+  cmds.push(['sleep 900', { ...opts, shell: false }]);
+  cmds.push(['ls -l /', opts]);
+  cmds.push(['ps -auxf', opts]);
 
-  for (const cmd of cmds) {
-    logger.info(`run cmd - START - "${cmd}"`);
+  for (const [cmd, opts] of cmds) {
+    logger.info({ opts }, `run cmd - START - "${cmd}"`);
     try {
-      // const cmd = 'npm run non-existent-script';
-      // const cmd = 'docker';
-      // const cmd = 'ls /usr';
-      // const cmd = 'npm run spawn-testing-script';
       const { stdout, stderr } = await rawSpawn(cmd, opts);
       // const { stdout, stderr } = await rawExec(cmd, {encoding: 'utf8', timeout: 0});
       if (stdout) {
