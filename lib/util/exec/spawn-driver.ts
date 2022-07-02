@@ -1,5 +1,6 @@
 import { logger } from '../../logger';
 import { rawSpawn } from './common';
+// import { rawExec } from './common';
 import type { RawSpawnOptions } from './types';
 
 void (async () => {
@@ -7,12 +8,16 @@ void (async () => {
   const opts: RawSpawnOptions = {
     encoding: 'utf8',
     shell: true,
-    timeout: 10000,
+    // timeout: 5000
   };
   logger.info('driver function - START');
   logger.info({ options: opts }, 'spawn options');
   cmds.push('npm run non-existent-script');
   cmds.push('docker');
+  cmds.push('docker image rm alpine');
+  cmds.push('docker images');
+  cmds.push('docker pull alpine');
+  cmds.push('docker images');
   cmds.push('npm run spawn-testing-script');
   cmds.push('ls /usr');
 
@@ -24,6 +29,7 @@ void (async () => {
       // const cmd = 'ls /usr';
       // const cmd = 'npm run spawn-testing-script';
       const { stdout, stderr } = await rawSpawn(cmd, opts);
+      // const { stdout, stderr } = await rawExec(cmd, {encoding: 'utf8', timeout: 0});
       if (stdout) {
         logger.info(stdout);
       }

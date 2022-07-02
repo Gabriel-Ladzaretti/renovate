@@ -1,3 +1,4 @@
+// import {ChildProcess, exec, spawn} from 'child_process';
 import { ChildProcess, exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import type { ExecResult, RawExecOptions, RawSpawnOptions } from './types';
@@ -45,9 +46,8 @@ function promisifySpawn(
   return new Promise((resolve, reject) => {
     const encoding: BufferEncoding = opts.encoding;
     const [command, ...args] = cmd.split(/\s+/);
-    const cp = spawn(command, args, { ...opts, detached: true }); // force detached
+    const cp = spawn(command, args, { ...opts, detached: true }); // PID range hack; force detached
     const [stdout, stderr] = initStreamListeners(cp); // handle streams
-    cp.unref();
 
     // handle process events
     cp.on('error', (error) => {
@@ -60,8 +60,8 @@ function promisifySpawn(
         const cmd = cp.spawnargs.join(' ');
         const msg = `PID= ${pid}\nCOMMAND= "${cmd}"\nSignaled with "${signal}"`;
         stderr.push(Buffer.from(msg));
+        process.kill(-pid); // PID range hack; kill process tree
         reject(stringify(stderr, encoding));
-        process.kill(-pid); // kill process tree
         return;
       }
       if (code !== 0) {
