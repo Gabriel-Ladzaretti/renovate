@@ -26,7 +26,7 @@ void (async () => {
   cmds.push(['ps -auxf', opts]);
 
   for (const [cmd, opts] of cmds) {
-    logger.info({ opts }, `run cmd - START - "${cmd}"`);
+    logger.info({ opts }, `Run rawSpawn() - START - "${cmd}"`);
     try {
       const { stdout, stderr } = await rawSpawn(cmd, opts);
       // const { stdout, stderr } = await rawExec(cmd, {encoding: 'utf8', timeout: 0});

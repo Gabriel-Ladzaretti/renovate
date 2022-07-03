@@ -58,7 +58,6 @@ function promisifySpawn(
       if (signal && !NONTERM.includes(signal)) {
         try {
           process.kill(-(cp.pid as number), signal); // PID range hack; signal process tree
-          // eslint-disable-next-line no-empty
         } catch (err) {
           // cp is a single node tree, therefore -pid is invalid,
         }
