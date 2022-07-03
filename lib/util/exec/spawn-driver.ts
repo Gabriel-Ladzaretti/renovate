@@ -21,6 +21,7 @@ void (async () => {
   cmds.push(['npm run spawn-testing-script', { ...opts, shell: false }]);
   cmds.push(['sleep 900', opts]);
   cmds.push(['sleep 900', { ...opts, shell: false }]);
+  cmds.push(['sleep 900', { ...opts, shell: '/bin/bash' }]);
   cmds.push(['ls -l /', opts]);
   cmds.push(['ps -auxf', opts]);
 
