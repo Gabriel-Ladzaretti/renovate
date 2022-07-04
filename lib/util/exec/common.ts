@@ -1,4 +1,3 @@
-// import {ChildProcess, exec, spawn} from 'child_process';
 import { ChildProcess, spawn } from 'child_process';
 import type { ExecResult, RawExecOptions } from './types';
 
