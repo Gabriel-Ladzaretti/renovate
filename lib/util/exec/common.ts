@@ -1,7 +1,6 @@
 // import {ChildProcess, exec, spawn} from 'child_process';
-import { ChildProcess, exec, spawn } from 'child_process';
-import { promisify } from 'util';
-import type { ExecResult, RawExecOptions, RawSpawnOptions } from './types';
+import { ChildProcess, spawn } from 'child_process';
+import type { ExecResult, RawExecOptions } from './types';
 
 // https://man7.org/linux/man-pages/man7/signal.7.html#NAME
 // Non TERM/CORE signals
@@ -23,7 +22,7 @@ function stringify(stream: Buffer[], encoding: BufferEncoding): string {
 
 function initStreamListeners(
   cp: ChildProcess,
-  opts: RawSpawnOptions & { maxBuffer: number }
+  opts: RawExecOptions & { maxBuffer: number; encoding: BufferEncoding }
 ): [Buffer[], Buffer[]] {
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
@@ -55,14 +54,18 @@ function initStreamListeners(
 
 function promisifySpawn(
   cmd: string,
-  opts: RawSpawnOptions
+  opts: RawExecOptions
 ): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
-    const encoding: BufferEncoding = opts.encoding;
+    const encoding = typeof opts.encoding as BufferEncoding;
     const [command, ...args] = cmd.split(/\s+/);
     const maxBuffer = opts.maxBuffer ?? 10 * 1024 * 1024; // Set default max buffer size to 10MB
     const cp = spawn(command, args, { ...opts, detached: true }); // PID range hack; force detached
-    const [stdout, stderr] = initStreamListeners(cp, { ...opts, maxBuffer }); // handle streams
+    const [stdout, stderr] = initStreamListeners(cp, {
+      ...opts,
+      maxBuffer,
+      encoding,
+    }); // handle streams
 
     // handle process events
     cp.on('error', (error) => {
@@ -101,9 +104,4 @@ function promisifySpawn(
 export const rawExec: (
   cmd: string,
   opts: RawExecOptions
-) => Promise<ExecResult> = promisify(exec);
-
-export const rawSpawn: (
-  cmd: string,
-  opts: RawSpawnOptions
 ) => Promise<ExecResult> = promisifySpawn;
