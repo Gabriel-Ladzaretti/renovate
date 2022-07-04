@@ -17,24 +17,38 @@ const NONTERM = [
   'SIGWINCH',
 ];
 
-function stringify(
-  stream: Buffer[],
-  encoding: BufferEncoding = 'utf8'
-): string {
+function stringify(stream: Buffer[], encoding: BufferEncoding): string {
   return Buffer.concat(stream).toString(encoding);
 }
 
-function initStreamListeners(cp: ChildProcess): [Buffer[], Buffer[]] {
+function initStreamListeners(
+  cp: ChildProcess,
+  opts: RawSpawnOptions & { maxBuffer: number }
+): [Buffer[], Buffer[]] {
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
+  let stdoutLen = 0;
+  let stderrLen = 0;
 
   cp.stdout?.on('data', (data: Buffer) => {
     // process.stdout.write(data.toString());
-    stdout.push(data);
+    const len = Buffer.byteLength(data, opts.encoding);
+    stdoutLen += len;
+    if (stdoutLen > opts.maxBuffer) {
+      cp.emit('error', new Error('exceeded max buffer size for stdout'));
+    } else {
+      stdout.push(data);
+    }
   });
   cp.stderr?.on('data', (data: Buffer) => {
     // process.stderr.write(data.toString());
-    stderr.push(data);
+    const len = Buffer.byteLength(data, opts.encoding);
+    stderrLen += len;
+    if (stderrLen > opts.maxBuffer) {
+      cp.emit('error', new Error('exceeded max buffer size for stderr'));
+    } else {
+      stderr.push(data);
+    }
   });
   return [stdout, stderr];
 }
@@ -46,8 +60,9 @@ function promisifySpawn(
   return new Promise((resolve, reject) => {
     const encoding: BufferEncoding = opts.encoding;
     const [command, ...args] = cmd.split(/\s+/);
+    const maxBuffer = opts.maxBuffer ?? 10 * 1024 * 1024; // Set default max buffer size to 10MB
     const cp = spawn(command, args, { ...opts, detached: true }); // PID range hack; force detached
-    const [stdout, stderr] = initStreamListeners(cp); // handle streams
+    const [stdout, stderr] = initStreamListeners(cp, { ...opts, maxBuffer }); // handle streams
 
     // handle process events
     cp.on('error', (error) => {

@@ -32,6 +32,7 @@ export interface DockerOptions {
 
 export interface RawSpawnOptions extends SpawnOptions {
   encoding: BufferEncoding;
+  maxBuffer?: number | undefined;
 }
 
 export interface RawExecOptions extends ChildProcessExecOptions {
