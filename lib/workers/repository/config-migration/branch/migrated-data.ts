@@ -63,23 +63,31 @@ export async function applyPrettierFormatting(
   return prettier.format(content, options);
 }
 
-function extractValue(src: string, key: string, isArray: boolean): string {
+function isEqual(obj1: object, obj2: object): boolean {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+}
+
+function extractValue(
+  src: string,
+  key: string,
+  isArray: boolean
+): string | null {
   const re = regEx(`\\"?${key}`);
   const op = isArray ? '[' : '{';
   const cl = isArray ? ']' : '}';
   const index = src.indexOf(op, src.search(re));
+  const stack: string[] = [];
+  let val = '';
 
   if (index === -1) {
     return '';
   }
 
-  const stack: string[] = [];
-  let val = '';
-
   for (let i = index; i < src.length; i += 1) {
     if (src[i] === op) {
       stack.push(src[i]);
-    } else if (src[i] === cl) {
+    }
+    if (src[i] === cl) {
       stack.pop();
       if (stack.length === 0) {
         val = src.slice(index, i + 1);
@@ -87,54 +95,42 @@ function extractValue(src: string, key: string, isArray: boolean): string {
       }
     }
   }
-  return val;
+
+  return stack.length ? null : val;
 }
 
 function restoreUserFormat(
-  original: string,
-  migrated: string,
-  json5 = false
+  originalRaw: string,
+  migratedRaw: string,
+  isJson5 = false
 ): string {
-  const org = JSON.parse(original);
-  const mig = JSON.parse(migrated);
-  let restored = migrated;
+  const original = (isJson5 ? JSON5 : JSON).parse(originalRaw);
+  const migrated = (isJson5 ? JSON5 : JSON).parse(migratedRaw);
+  let restored = migratedRaw;
 
-  for (const [key, valOrg] of Object.entries(org)) {
-    if (!Object.prototype.hasOwnProperty.call(mig, key)) {
+  for (const [key, value] of Object.entries(original)) {
+    if (!Object.prototype.hasOwnProperty.call(migrated, key)) {
       continue;
     }
-    switch (typeof valOrg) {
-      case 'number':
-      case 'boolean':
-      case 'string':
-        if (mig[key as keyof typeof mig] === valOrg) {
-          const entryRe = regEx(`\\"?${key}\\"?[^,]*,`);
-          const replacement = original.match(entryRe)?.[0];
-          if (replacement) {
-            restored = restored.replace(entryRe, replacement);
-          }
-        }
-        break;
-      case 'object':
-        {
-          const valOrgStr = json5
-            ? JSON5.stringify(valOrg)
-            : JSON.stringify(valOrg);
-
-          const valMigStr = json5
-            ? JSON5.stringify(mig[key as keyof typeof mig])
-            : JSON.stringify(mig[key as keyof typeof mig]);
-
-          if (valOrgStr === valMigStr) {
-            const orgVal = extractValue(original, key, valOrg instanceof Array);
-            const newVal = extractValue(migrated, key, valOrg instanceof Array);
-            restored = restored.replace(newVal, orgVal);
-          }
-        }
-        break;
-      default:
-        break;
+    if (!value || typeof value !== 'object') {
+      continue;
     }
+    if (!isEqual(value, migrated[key as keyof typeof migrated])) {
+      continue;
+    }
+
+    const search = extractValue(migratedRaw, key, value instanceof Array);
+    const replacement = extractValue(
+      originalRaw,
+      key,
+      value instanceof Array
+    )?.replace(/\$/g, '$$$'); // escape '$'
+
+    if (!search || !replacement) {
+      continue;
+    }
+
+    restored = restored.replace(search, replacement);
   }
 
   return restored;
@@ -202,7 +198,7 @@ export class MigratedDataFactory {
         content += '\n';
       }
 
-      content = restoreUserFormat(raw!, content);
+      content = restoreUserFormat(raw!, content, filename.endsWith('.json5'));
       res = { content, filename };
     } catch (err) {
       logger.debug(
