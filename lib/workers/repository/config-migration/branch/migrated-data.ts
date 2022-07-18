@@ -63,10 +63,6 @@ export async function applyPrettierFormatting(
   return prettier.format(content, options);
 }
 
-function isEqual(obj1: object, obj2: object): boolean {
-  return JSON.stringify(obj1) === JSON.stringify(obj2);
-}
-
 function extractValue(
   src: string,
   key: string,
@@ -115,22 +111,18 @@ function restoreUserFormat(
     if (!value || typeof value !== 'object') {
       continue;
     }
-    if (!isEqual(value, migrated[key as keyof typeof migrated])) {
-      continue;
-    }
 
     const search = extractValue(migratedRaw, key, value instanceof Array);
-    const replacement = extractValue(
-      originalRaw,
-      key,
-      value instanceof Array
-    )?.replace(/\$/g, '$$$'); // escape '$'
+    const replacement = extractValue(originalRaw, key, value instanceof Array); // escape '$'
 
     if (!search || !replacement) {
       continue;
     }
 
-    restored = restored.replace(search, replacement);
+    restored = restored.replace(
+      search,
+      restoreUserFormat(search, replacement, isJson5).replace(/\$/g, '$$$')
+    );
   }
 
   return restored;
