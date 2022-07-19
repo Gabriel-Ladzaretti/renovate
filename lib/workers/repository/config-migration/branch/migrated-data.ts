@@ -63,6 +63,15 @@ export async function applyPrettierFormatting(
   return prettier.format(content, options);
 }
 
+function quote(
+  strings: TemplateStringsArray,
+  src: string,
+  key: string
+): string {
+  const q = src.match(regEx(/['"]/))?.[0] ?? '';
+  return `${strings[1]}${q}${key}${q}${strings[2]}`;
+}
+
 function extractValue(
   src: string,
   key: string,
@@ -108,7 +117,22 @@ function restoreUserFormat(
     if (!Object.prototype.hasOwnProperty.call(migrated, key)) {
       continue;
     }
-    if (!value || typeof value !== 'object') {
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    if (typeof value !== 'object') {
+      if (value === migrated[key as keyof typeof migrated]) {
+        const orgRe = regEx(
+          quote`${originalRaw}\\s*${value as string}\\s*,?\\s*`
+        );
+        const resRe = regEx(quote`${restored}\\s*${value as string}\\s*,?\\s*`);
+        const replace = originalRaw.match(orgRe)?.[0];
+        const search = restored.match(resRe)?.[0];
+        if (search && replace) {
+          restored = restored.replace(search, replace);
+        }
+      }
       continue;
     }
 
@@ -121,7 +145,7 @@ function restoreUserFormat(
 
     restored = restored.replace(
       search,
-      restoreUserFormat(search, replacement, isJson5).replace(/\$/g, '$$$')
+      restoreUserFormat(replacement, search, isJson5).replace(/\$/g, '$$$')
     );
   }
 
