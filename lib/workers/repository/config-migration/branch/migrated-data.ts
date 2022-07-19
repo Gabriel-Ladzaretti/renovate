@@ -105,6 +105,47 @@ function extractValue(
   return stack.length ? null : val;
 }
 
+function recursionBaseCase(
+  originalRaw: string,
+  restored: string,
+  key: string,
+  value: string
+): string {
+  let replace: string | undefined;
+  let search: string | undefined;
+
+  if (isNaN(parseInt(key))) {
+    // inside object
+    search = getValueKeyFormatting(restored);
+    replace = getValueKeyFormatting(originalRaw);
+  } else {
+    // inside array
+    search = getValueFormatting(restored);
+    replace = getValueFormatting(originalRaw);
+  }
+
+  if (search && replace) {
+    return restored.replace(search, replace);
+  }
+
+  return restored;
+
+  function getValueKeyFormatting(raw: string): string | undefined {
+    const k = quote`${raw}${key}`;
+    const v = quote`${raw}${value}`;
+    const replaceKey = raw.match(regEx(`\\s*${k}\\s*:\\s*`))?.[0];
+    if (!replaceKey) {
+      return restored;
+    }
+    const replaceRe = regEx(`\\s*${replaceKey}${v}\\s*,?\\s*`);
+    return raw.match(replaceRe)?.[0];
+  }
+
+  function getValueFormatting(raw: string): string | undefined {
+    return raw.match(regEx(quote`${raw}\\s*${value}\\s*,?\\s*`))?.[0];
+  }
+}
+
 function restoreUserFormat(
   originalRaw: string,
   migratedRaw: string,
@@ -124,48 +165,18 @@ function restoreUserFormat(
 
     if (typeof value !== 'object') {
       if (value === migrated[key as keyof typeof migrated]) {
-        let replace: string | undefined;
-        let search: string | undefined;
-        if (isNaN(parseInt(key))) {
-          // inside object
-          let k = quote`${originalRaw}${key}`;
-          let v = quote`${originalRaw}${value as string}`;
-          const replaceKey = originalRaw.match(regEx(`\\s*${k}\\s*:\\s*`))?.[0];
-          if (!replaceKey) {
-            continue;
-          }
-          const replaceRe = regEx(`\\s*${replaceKey}${v}\\s*,?\\s*`);
-          replace = originalRaw.match(replaceRe)?.[0];
-
-          k = quote`${restored}${key}`;
-          v = quote`${restored}${value as string}`;
-          const searchKey = restored.match(regEx(`\\s*${k}\\s*:\\s*`))?.[0];
-          if (!searchKey) {
-            continue;
-          }
-          const searchRe = regEx(`\\s*${searchKey}${v}\\s*,?\\s*`);
-          search = restored.match(searchRe)?.[0];
-        } else {
-          // inside array
-          const orgRe = regEx(
-            quote`${originalRaw}\\s*${value as string}\\s*,?\\s*`
-          );
-          const resRe = regEx(
-            quote`${restored}\\s*${value as string}\\s*,?\\s*`
-          );
-          replace = originalRaw.match(orgRe)?.[0];
-          search = restored.match(resRe)?.[0];
-        }
-
-        if (search && replace) {
-          restored = restored.replace(search, replace);
-        }
+        restored = recursionBaseCase(
+          originalRaw,
+          restored,
+          key,
+          value as string
+        );
       }
       continue;
     }
 
     const search = extractValue(migratedRaw, key, value instanceof Array);
-    const replacement = extractValue(originalRaw, key, value instanceof Array); // escape '$'
+    const replacement = extractValue(originalRaw, key, value instanceof Array);
 
     if (!search || !replacement) {
       continue;
@@ -173,7 +184,7 @@ function restoreUserFormat(
 
     restored = restored.replace(
       search,
-      restoreUserFormat(replacement, search, isJson5).replace(/\$/g, '$$$')
+      restoreUserFormat(replacement, search, isJson5).replace(/\$/g, '$$$') // escape '$'
     );
   }
 
