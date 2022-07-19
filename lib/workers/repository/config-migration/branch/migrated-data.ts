@@ -66,10 +66,11 @@ export async function applyPrettierFormatting(
 function quote(
   strings: TemplateStringsArray,
   src: string,
-  key: string
+  str: string
 ): string {
-  const q = src.match(regEx(/['"]/))?.[0] ?? '';
-  return `${strings[1]}${q}${key}${q}${strings[2]}`;
+  const search = src.match(regEx(`['"]?${str}`))?.[0] ?? '';
+  const q = search.match(regEx(/['"]/))?.[0] ?? '';
+  return `${strings[1]}${q}${str}${q}${strings[2]}`;
 }
 
 function extractValue(
@@ -123,12 +124,39 @@ function restoreUserFormat(
 
     if (typeof value !== 'object') {
       if (value === migrated[key as keyof typeof migrated]) {
-        const orgRe = regEx(
-          quote`${originalRaw}\\s*${value as string}\\s*,?\\s*`
-        );
-        const resRe = regEx(quote`${restored}\\s*${value as string}\\s*,?\\s*`);
-        const replace = originalRaw.match(orgRe)?.[0];
-        const search = restored.match(resRe)?.[0];
+        let replace: string | undefined;
+        let search: string | undefined;
+        if (isNaN(parseInt(key))) {
+          // inside object
+          let k = quote`${originalRaw}${key}`;
+          let v = quote`${originalRaw}${value as string}`;
+          const replaceKey = originalRaw.match(regEx(`\\s*${k}\\s*:\\s*`))?.[0];
+          if (!replaceKey) {
+            continue;
+          }
+          const replaceRe = regEx(`\\s*${replaceKey}${v}\\s*,?\\s*`);
+          replace = originalRaw.match(replaceRe)?.[0];
+
+          k = quote`${restored}${key}`;
+          v = quote`${restored}${value as string}`;
+          const searchKey = restored.match(regEx(`\\s*${k}\\s*:\\s*`))?.[0];
+          if (!searchKey) {
+            continue;
+          }
+          const searchRe = regEx(`\\s*${searchKey}${v}\\s*,?\\s*`);
+          search = restored.match(searchRe)?.[0];
+        } else {
+          // inside array
+          const orgRe = regEx(
+            quote`${originalRaw}\\s*${value as string}\\s*,?\\s*`
+          );
+          const resRe = regEx(
+            quote`${restored}\\s*${value as string}\\s*,?\\s*`
+          );
+          replace = originalRaw.match(orgRe)?.[0];
+          search = restored.match(resRe)?.[0];
+        }
+
         if (search && replace) {
           restored = restored.replace(search, replace);
         }
