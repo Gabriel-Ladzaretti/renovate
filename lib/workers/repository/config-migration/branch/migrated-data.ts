@@ -238,7 +238,11 @@ export class MigratedDataFactory {
       let content: string;
 
       if (filename.endsWith('.json5')) {
-        content = JSON5.stringify(migratedConfig, undefined, indentSpace);
+        const userQuotes = raw!.match(/['"]/)?.[0] ?? '"';
+        content = JSON5.stringify(migratedConfig, {
+          space: indentSpace,
+          quote: userQuotes,
+        });
       } else {
         content = JSON.stringify(migratedConfig, undefined, indentSpace);
       }
