@@ -1,19 +1,21 @@
+import type { MergeConfidence } from '../../../../config/types';
 import { logger } from '../../../../logger';
 import type { Release } from '../../../../modules/datasource';
 import type { LookupUpdate } from '../../../../modules/manager/types';
 import type { VersioningApi } from '../../../../modules/versioning';
 import type { RangeStrategy } from '../../../../types';
+import { getMergeConfidenceLevel } from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import { getUpdateType } from './update-type';
 
-export function generateUpdate(
+export async function generateUpdate(
   config: LookupUpdateConfig,
   versioning: VersioningApi,
   rangeStrategy: RangeStrategy,
   currentVersion: string,
   bucket: string,
   release: Release
-): LookupUpdate {
+): Promise<LookupUpdate> {
   const newVersion = release.version;
   const update: LookupUpdate = {
     bucket,
@@ -68,6 +70,14 @@ export function generateUpdate(
   update.updateType =
     update.updateType ??
     getUpdateType(config, versioning, currentVersion, newVersion);
+  const { datasource, depName } = config;
+  update.mergeConfidenceLevel = (await getMergeConfidenceLevel(
+    datasource,
+    depName,
+    currentVersion,
+    newVersion,
+    update.updateType
+  )) as MergeConfidence;
   if (!versioning.isVersion(update.newValue)) {
     update.isRange = true;
   }

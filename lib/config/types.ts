@@ -276,6 +276,8 @@ export type UpdateType =
   | 'bump'
   | 'replacement';
 
+export type MergeConfidence = 'low' | 'neutral' | 'high' | 'very high';
+
 export type MatchStringsStrategy = 'any' | 'recursive' | 'combination';
 
 export type MergeStrategy =
@@ -308,6 +310,7 @@ export interface PackageRule
   matchSourceUrlPrefixes?: string[];
   matchSourceUrls?: string[];
   matchUpdateTypes?: UpdateType[];
+  matchMergeConfidenceLevels?: MergeConfidence[];
   registryUrls?: string[];
 }
 
@@ -435,6 +438,7 @@ export interface PackageRuleInputConfig extends Record<string, unknown> {
   currentVersion?: string;
   lockedVersion?: string | null;
   updateType?: UpdateType;
+  mergeConfidenceLevel?: MergeConfidence;
   isBump?: boolean;
   sourceUrl?: string | null;
   language?: string;

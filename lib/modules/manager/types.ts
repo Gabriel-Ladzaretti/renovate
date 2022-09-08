@@ -1,6 +1,7 @@
 import type { ReleaseType } from 'semver';
 import type {
   MatchStringsStrategy,
+  MergeConfidence,
   RegexManagerTemplates,
   UpdateType,
   ValidationMessage,
@@ -133,6 +134,7 @@ export interface LookupUpdate {
   pendingVersions?: string[];
   newVersion?: string;
   updateType?: UpdateType;
+  mergeConfidenceLevel?: MergeConfidence;
   userStrings?: Record<string, string>;
   checksumUrl?: string;
   downloadUrl?: string;
