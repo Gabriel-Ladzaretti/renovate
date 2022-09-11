@@ -1,10 +1,12 @@
-import type { MergeConfidence } from '../../../../config/types';
 import { logger } from '../../../../logger';
 import type { Release } from '../../../../modules/datasource';
 import type { LookupUpdate } from '../../../../modules/manager/types';
 import type { VersioningApi } from '../../../../modules/versioning';
 import type { RangeStrategy } from '../../../../types';
-import { getMergeConfidenceLevel } from '../../../../util/merge-confidence';
+import {
+  getMergeConfidenceLevel,
+  MergeConfidence,
+} from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import { getUpdateType } from './update-type';
 
@@ -71,13 +73,14 @@ export async function generateUpdate(
     update.updateType ??
     getUpdateType(config, versioning, currentVersion, newVersion);
   const { datasource, depName } = config;
-  const mergeConfidenceLevel = (await getMergeConfidenceLevel(
-    datasource,
-    depName,
-    currentVersion,
-    newVersion,
-    update.updateType
-  )) as MergeConfidence;
+  const mergeConfidenceLevel: MergeConfidence | undefined =
+    await getMergeConfidenceLevel(
+      datasource,
+      depName,
+      currentVersion,
+      newVersion,
+      update.updateType
+    );
   if (mergeConfidenceLevel) {
     update.mergeConfidenceLevel = mergeConfidenceLevel;
   }

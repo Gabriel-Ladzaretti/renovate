@@ -8,7 +8,7 @@ import { Http } from '../http';
 
 const http = new Http('merge-confidence');
 
-const MERGE_CONFIDENCE = ['low', 'neutral', 'high', 'very high'];
+const MERGE_CONFIDENCE = ['low', 'neutral', 'high', 'very high'] as const;
 type MergeConfidenceTuple = typeof MERGE_CONFIDENCE;
 export type MergeConfidence = MergeConfidenceTuple[number];
 
@@ -19,8 +19,12 @@ export const confidenceLevels: Record<MergeConfidence, number> = {
   'very high': 2,
 };
 
+export function isMergeConfidence(value: string): value is MergeConfidence {
+  return MERGE_CONFIDENCE.includes(value as MergeConfidence);
+}
+
 export function isActiveConfidenceLevel(confidence: string): boolean {
-  return confidence !== 'low' && MERGE_CONFIDENCE.includes(confidence);
+  return confidence !== 'low' && isMergeConfidence(confidence);
 }
 
 export function satisfiesConfidenceLevel(
@@ -76,7 +80,7 @@ export async function getMergeConfidenceLevel(
   if (cachedResult) {
     return cachedResult;
   }
-  let confidence = 'neutral';
+  let confidence: MergeConfidence = 'neutral';
   try {
     const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
     if (MERGE_CONFIDENCE.includes(res.confidence)) {

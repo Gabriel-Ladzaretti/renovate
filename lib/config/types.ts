@@ -2,6 +2,7 @@ import type { LogLevel } from 'bunyan';
 import type { Range } from 'semver';
 import type { HostRule } from '../types';
 import type { GitNoVerifyOption } from '../util/git/types';
+import type { MergeConfidence } from '../util/merge-confidence';
 
 export type RenovateConfigStage =
   | 'global'
@@ -275,8 +276,6 @@ export type UpdateType =
   | 'rollback'
   | 'bump'
   | 'replacement';
-
-export type MergeConfidence = 'low' | 'neutral' | 'high' | 'very high';
 
 export type MatchStringsStrategy = 'any' | 'recursive' | 'combination';
 

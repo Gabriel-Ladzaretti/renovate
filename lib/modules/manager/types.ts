@@ -1,7 +1,6 @@
 import type { ReleaseType } from 'semver';
 import type {
   MatchStringsStrategy,
-  MergeConfidence,
   RegexManagerTemplates,
   UpdateType,
   ValidationMessage,
@@ -9,6 +8,7 @@ import type {
 import type { ProgrammingLanguage } from '../../constants';
 import type { ModuleApi, RangeStrategy, SkipReason } from '../../types';
 import type { FileChange } from '../../util/git/types';
+import type { MergeConfidence } from '../../util/merge-confidence';
 
 export type Result<T> = T | Promise<T>;
 
