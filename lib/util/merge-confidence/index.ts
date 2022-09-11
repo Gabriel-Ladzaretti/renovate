@@ -2,7 +2,7 @@ import type { UpdateType } from '../../config/types';
 import { logger } from '../../logger';
 import * as memCache from '../cache/memory';
 // import * as packageCache from '../cache/package';
-// import * as hostRules from '../host-rules';
+import * as hostRules from '../host-rules';
 import { Http } from '../http';
 import { regEx } from '../regex';
 
@@ -51,25 +51,24 @@ const updateTypeConfidenceMapping: Record<UpdateType, MergeConfidence | null> =
 //   currentVersion: string,
 //   newVersion: string,
 //   updateType: UpdateType
-// ): Promise<MergeConfidence> {
+// ): Promise<MergeConfidence | undefined> {
+//   const { token } = hostRules.find({
+//     hostType: 'merge-confidence',
+//     url: 'https://badges.renovateapi.com',
+//   });
+//   if (!token) {
+//     return undefined;
+//   }
+//   // istanbul ignore if
+//   if (memCache.get('merge-confidence-invalid-token')) {
+//     return undefined;
+//   }
 //   if (!(currentVersion && newVersion && updateType)) {
 //     return 'neutral';
 //   }
 //   const mappedConfidence = updateTypeConfidenceMapping[updateType];
 //   if (mappedConfidence) {
 //     return mappedConfidence;
-//   }
-//   const { token } = hostRules.find({
-//     hostType: 'merge-confidence',
-//     url: 'https://badges.renovateapi.com',
-//   });
-//   if (!token) {
-//     logger.warn('No Merge Confidence API token found');
-//     return 'neutral';
-//   }
-//   // istanbul ignore if
-//   if (memCache.get('merge-confidence-invalid-token')) {
-//     return 'neutral';
 //   }
 //   const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`;
 //   const cachedResult = await packageCache.get('merge-confidence', token + url);
@@ -100,7 +99,14 @@ export async function getMergeConfidenceLevel(
   currentVersion: string,
   newVersion: string,
   updateType: UpdateType
-): Promise<MergeConfidence> {
+): Promise<MergeConfidence | undefined> {
+  const { token } = hostRules.find({
+    hostType: 'merge-confidence',
+    url: 'https://badges.renovateapi.com',
+  });
+  if (!token) {
+    return undefined;
+  }
   if (!(currentVersion && newVersion && updateType)) {
     return 'neutral';
   }

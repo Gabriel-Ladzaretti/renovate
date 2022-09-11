@@ -71,13 +71,16 @@ export async function generateUpdate(
     update.updateType ??
     getUpdateType(config, versioning, currentVersion, newVersion);
   const { datasource, depName } = config;
-  update.mergeConfidenceLevel = (await getMergeConfidenceLevel(
+  const mergeConfidenceLevel = (await getMergeConfidenceLevel(
     datasource,
     depName,
     currentVersion,
     newVersion,
     update.updateType
   )) as MergeConfidence;
+  if (mergeConfidenceLevel) {
+    update.mergeConfidenceLevel = mergeConfidenceLevel;
+  }
   if (!versioning.isVersion(update.newValue)) {
     update.isRange = true;
   }
