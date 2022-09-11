@@ -1,4 +1,8 @@
-import type { PackageRuleInputConfig, UpdateType } from '../../config/types';
+import type {
+  MergeConfidence,
+  PackageRuleInputConfig,
+  UpdateType,
+} from '../../config/types';
 import { ProgrammingLanguage } from '../../constants';
 
 import { DockerDatasource } from '../../modules/datasource/docker';
@@ -625,6 +629,59 @@ describe('util/package-rules/index', () => {
       depType: 'dependencies',
       depName: 'a',
       updateType: 'patch' as UpdateType,
+    };
+    const res = applyPackageRules({ ...config, ...dep });
+    expect(res.x).toBeUndefined();
+  });
+
+  it('matches matchMergeConfidenceLevels', () => {
+    const config: TestConfig = {
+      packageRules: [
+        {
+          matchMergeConfidenceLevels: ['high'],
+          x: 1,
+        },
+      ],
+    };
+    const dep = {
+      depType: 'dependencies',
+      depName: 'a',
+      mergeConfidenceLevel: 'high' as MergeConfidence,
+    };
+    const res = applyPackageRules({ ...config, ...dep });
+    expect(res.x).toBe(1);
+  });
+
+  it('non-matches matchMergeConfidenceLevels', () => {
+    const config: TestConfig = {
+      packageRules: [
+        {
+          matchMergeConfidenceLevels: ['high'],
+          x: 1,
+        },
+      ],
+    };
+    const dep = {
+      depType: 'dependencies',
+      depName: 'a',
+      mergeConfidenceLevel: 'low' as MergeConfidence,
+    };
+    const res = applyPackageRules({ ...config, ...dep });
+    expect(res.x).toBeUndefined();
+  });
+
+  it('handles matchMergeConfidenceLevels when missing mergeConfidenceLevel', () => {
+    const config: TestConfig = {
+      packageRules: [
+        {
+          matchMergeConfidenceLevels: ['high'],
+          x: 1,
+        },
+      ],
+    };
+    const dep = {
+      depType: 'dependencies',
+      depName: 'a',
     };
     const res = applyPackageRules({ ...config, ...dep });
     expect(res.x).toBeUndefined();

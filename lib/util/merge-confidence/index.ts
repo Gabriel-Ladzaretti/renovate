@@ -1,10 +1,10 @@
 import type { UpdateType } from '../../config/types';
 import { logger } from '../../logger';
 import * as memCache from '../cache/memory';
-// import * as packageCache from '../cache/package';
+import * as packageCache from '../cache/package';
 import * as hostRules from '../host-rules';
 import { Http } from '../http';
-import { regEx } from '../regex';
+// import { regEx } from '../regex';
 
 const http = new Http('merge-confidence');
 
@@ -45,54 +45,6 @@ const updateTypeConfidenceMapping: Record<UpdateType, MergeConfidence | null> =
     patch: null,
   };
 
-// export async function getMergeConfidenceLevel(
-//   datasource: string,
-//   depName: string,
-//   currentVersion: string,
-//   newVersion: string,
-//   updateType: UpdateType
-// ): Promise<MergeConfidence | undefined> {
-//   const { token } = hostRules.find({
-//     hostType: 'merge-confidence',
-//     url: 'https://badges.renovateapi.com',
-//   });
-//   if (!token) {
-//     return undefined;
-//   }
-//   // istanbul ignore if
-//   if (memCache.get('merge-confidence-invalid-token')) {
-//     return undefined;
-//   }
-//   if (!(currentVersion && newVersion && updateType)) {
-//     return 'neutral';
-//   }
-//   const mappedConfidence = updateTypeConfidenceMapping[updateType];
-//   if (mappedConfidence) {
-//     return mappedConfidence;
-//   }
-//   const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`;
-//   const cachedResult = await packageCache.get('merge-confidence', token + url);
-//   // istanbul ignore if
-//   if (cachedResult) {
-//     return cachedResult;
-//   }
-//   let confidence = 'neutral';
-//   try {
-//     const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
-//     if (MERGE_CONFIDENCE.includes(res.confidence)) {
-//       confidence = res.confidence;
-//     }
-//   } catch (err) {
-//     logger.debug({ err }, 'Error fetching merge confidence');
-//     if (err.statusCode === 403) {
-//       memCache.set('merge-confidence-invalid-token', true);
-//       logger.warn('Merge Confidence API token rejected');
-//     }
-//   }
-//   // await packageCache.set('merge-confidence', token + url, confidence, 60);
-//   return confidence;
-// }
-
 export async function getMergeConfidenceLevel(
   datasource: string,
   depName: string,
@@ -107,6 +59,10 @@ export async function getMergeConfidenceLevel(
   if (!token) {
     return undefined;
   }
+  // istanbul ignore if
+  if (memCache.get('merge-confidence-invalid-token')) {
+    return undefined;
+  }
   if (!(currentVersion && newVersion && updateType)) {
     return 'neutral';
   }
@@ -114,14 +70,17 @@ export async function getMergeConfidenceLevel(
   if (mappedConfidence) {
     return mappedConfidence;
   }
-  const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence/${currentVersion}`;
+  const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`;
+  const cachedResult = await packageCache.get('merge-confidence', token + url);
+  // istanbul ignore if
+  if (cachedResult) {
+    return cachedResult;
+  }
   let confidence = 'neutral';
   try {
-    const res = (await http.get(url)).body;
-    const re = regEx(/confidence: (?<confidence>.*)<\/title>/);
-    const level = re.exec(res)?.groups?.confidence ?? '';
-    if (MERGE_CONFIDENCE.includes(level)) {
-      confidence = level;
+    const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
+    if (MERGE_CONFIDENCE.includes(res.confidence)) {
+      confidence = res.confidence;
     }
   } catch (err) {
     logger.debug({ err }, 'Error fetching merge confidence');
@@ -130,5 +89,46 @@ export async function getMergeConfidenceLevel(
       logger.warn('Merge Confidence API token rejected');
     }
   }
+  await packageCache.set('merge-confidence', token + url, confidence, 60);
   return confidence;
 }
+
+// export async function getMergeConfidenceLevel(
+//   datasource: string,
+//   depName: string,
+//   currentVersion: string,
+//   newVersion: string,
+//   updateType: UpdateType
+// ): Promise<MergeConfidence | undefined> {
+//   const { token } = hostRules.find({
+//     hostType: 'merge-confidence',
+//     url: 'https://badges.renovateapi.com',
+//   });
+//   if (!token) {
+//     return undefined;
+//   }
+//   if (!(currentVersion && newVersion && updateType)) {
+//     return 'neutral';
+//   }
+//   const mappedConfidence = updateTypeConfidenceMapping[updateType];
+//   if (mappedConfidence) {
+//     return mappedConfidence;
+//   }
+//   const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence/${currentVersion}`;
+//   let confidence = 'neutral';
+//   try {
+//     const res = (await http.get(url)).body;
+//     const re = regEx(/confidence: (?<confidence>.*)<\/title>/);
+//     const level = re.exec(res)?.groups?.confidence ?? '';
+//     if (MERGE_CONFIDENCE.includes(level)) {
+//       confidence = level;
+//     }
+//   } catch (err) {
+//     logger.debug({ err }, 'Error fetching merge confidence');
+//     if (err.statusCode === 403) {
+//       memCache.set('merge-confidence-invalid-token', true);
+//       logger.warn('Merge Confidence API token rejected');
+//     }
+//   }
+//   return confidence;
+// }

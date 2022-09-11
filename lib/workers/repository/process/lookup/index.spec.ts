@@ -1,3 +1,4 @@
+import * as hostRules from '../../../../../lib/util/host-rules';
 import { Fixtures } from '../../../../../test/fixtures';
 import * as httpMock from '../../../../../test/http-mock';
 import { getConfig, mocked, partial } from '../../../../../test/util';
@@ -60,7 +61,10 @@ describe('workers/repository/process/lookup/index', () => {
   });
 
   // TODO: fix mocks
-  afterEach(() => httpMock.clear(false));
+  afterEach(() => {
+    httpMock.clear(false);
+    hostRules.clear();
+  });
 
   describe('.lookupUpdates()', () => {
     it('returns null if unknown datasource', async () => {
@@ -1717,6 +1721,33 @@ describe('workers/repository/process/lookup/index', () => {
           newValue: `2.5.16`,
           newVersion: `2.5.16`,
           updateType: `rollback`,
+        },
+      ]);
+    });
+
+    it('gets a merge confidence level for a given update', async () => {
+      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      const datasource = NpmDatasource.id;
+      const depName = 'webpack';
+      const newVersion = '3.8.1';
+      const currentValue = '3.7.0';
+      config.currentValue = currentValue;
+      config.depName = depName;
+      config.datasource = datasource;
+      httpMock
+        .scope('https://registry.npmjs.org')
+        .get('/webpack')
+        .reply(200, webpackJson);
+      httpMock
+        .scope('https://badges.renovateapi.com')
+        .get(
+          `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentValue}`
+        )
+        .reply(200, { confidence: 'high' });
+      const res = (await lookup.lookupUpdates(config)).updates;
+      expect(res).toMatchObject([
+        {
+          mergeConfidenceLevel: `high`,
         },
       ]);
     });

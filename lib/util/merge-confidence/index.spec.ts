@@ -42,8 +42,12 @@ describe('util/merge-confidence/index', () => {
 
   describe('getMergeConfidenceLevel()', () => {
     beforeEach(() => {
-      hostRules.clear();
+      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       memCache.reset();
+    });
+
+    afterEach(() => {
+      hostRules.clear();
     });
 
     it('returns neutral if undefined updateType', async () => {
@@ -83,6 +87,7 @@ describe('util/merge-confidence/index', () => {
     });
 
     it('returns neutral if no token', async () => {
+      hostRules.clear();
       expect(
         await getMergeConfidenceLevel(
           'npm',
@@ -91,11 +96,10 @@ describe('util/merge-confidence/index', () => {
           '25.0.0',
           'major'
         )
-      ).toBe('neutral');
+      ).toBeUndefined();
     });
 
     it('returns valid confidence level', async () => {
-      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       const datasource = 'npm';
       const depName = 'renovate';
       const currentVersion = '24.3.0';
