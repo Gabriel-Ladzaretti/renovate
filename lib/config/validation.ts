@@ -39,7 +39,6 @@ const ignoredNodes = [
   'copyLocalLibs', // deprecated - functionality is now enabled by default
   'prBody', // deprecated
   'minimumConfidence', // undocumented feature flag
-  'matchMergeConfidenceLevels',
 ];
 const tzRe = regEx(/^:timezone\((.+)\)$/);
 const rulesRe = regEx(/p.*Rules\[\d+\]$/);

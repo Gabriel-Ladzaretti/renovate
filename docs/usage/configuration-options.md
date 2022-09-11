@@ -1888,6 +1888,22 @@ For example to apply a special label for Major updates:
 }
 ```
 
+### matchMergeConfidenceLevels
+
+Use this field to match rules against merge confidence data of given updates.
+For example to group high merge confidence updates:
+
+```json
+{
+  "packageRules": [
+    {
+      "matchMergeConfidenceLevels": ["high", "very high"],
+      "groupName": "high merge confidence"
+    }
+  ]
+}
+```
+
 ### customChangelogUrl
 
 Use this field to set the source URL for a package, including overriding an existing one.
