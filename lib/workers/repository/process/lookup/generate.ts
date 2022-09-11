@@ -4,8 +4,8 @@ import type { LookupUpdate } from '../../../../modules/manager/types';
 import type { VersioningApi } from '../../../../modules/versioning';
 import type { RangeStrategy } from '../../../../types';
 import {
-  getMergeConfidenceLevel,
   MergeConfidence,
+  getMergeConfidenceLevel,
 } from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import { getUpdateType } from './update-type';

@@ -121,7 +121,7 @@ describe('util/merge-confidence/index', () => {
       ).toBe('high');
     });
 
-    it('returns neutral if invalid confidence level', async () => {
+    it('returns undefined if invalid confidence level', async () => {
       hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       const datasource = 'npm';
       const depName = 'renovate';
@@ -141,10 +141,10 @@ describe('util/merge-confidence/index', () => {
           newVersion,
           'minor'
         )
-      ).toBe('neutral');
+      ).toBeUndefined();
     });
 
-    it('returns neutral if exception from API', async () => {
+    it('returns undefined if exception from API', async () => {
       hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       const datasource = 'npm';
       const depName = 'renovate';
@@ -164,7 +164,7 @@ describe('util/merge-confidence/index', () => {
           newVersion,
           'minor'
         )
-      ).toBe('neutral');
+      ).toBeUndefined();
 
       // FIXME: no cache hit
       httpMock
@@ -182,7 +182,7 @@ describe('util/merge-confidence/index', () => {
           newVersion,
           'minor'
         )
-      ).toBe('neutral');
+      ).toBeUndefined();
     });
 
     it('returns high if pinning digest', async () => {
