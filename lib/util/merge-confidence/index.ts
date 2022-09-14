@@ -1,11 +1,12 @@
 import type { UpdateType } from '../../config/types';
 import { logger } from '../../logger';
-import * as memCache from '../cache/memory';
+import { ExternalHostError } from '../../types/errors/external-host-error';
 import * as packageCache from '../cache/package';
 import * as hostRules from '../host-rules';
 import { Http } from '../http';
 
-const http = new Http('merge-confidence');
+const hostType = 'merge-confidence';
+const http = new Http(hostType);
 
 const MERGE_CONFIDENCE = ['low', 'neutral', 'high', 'very high'] as const;
 type MergeConfidenceTuple = typeof MERGE_CONFIDENCE;
@@ -55,13 +56,9 @@ export async function getMergeConfidenceLevel(
   newVersion: string,
   updateType: UpdateType
 ): Promise<MergeConfidence | undefined> {
-  // istanbul ignore if
-  if (memCache.get('merge-confidence-invalid-token')) {
-    return undefined;
-  }
   const { token } = hostRules.find({
-    hostType: 'merge-confidence',
     url: 'https://badges.renovateapi.com',
+    hostType,
   });
   if (!token) {
     return undefined;
@@ -74,24 +71,31 @@ export async function getMergeConfidenceLevel(
     return mappedConfidence;
   }
   const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`;
-  const cachedResult = await packageCache.get('merge-confidence', token + url);
+  const cachedResult = await packageCache.get(hostType, token + url);
   // istanbul ignore if
   if (cachedResult) {
     return cachedResult;
   }
-  let confidence: MergeConfidence | undefined = undefined;
+  let confidence: MergeConfidence = 'neutral';
   try {
     const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
     if (isMergeConfidence(res.confidence)) {
       confidence = res.confidence;
     }
   } catch (err) {
-    logger.debug({ err }, 'Error fetching merge confidence');
     if (err.statusCode === 403) {
-      memCache.set('merge-confidence-invalid-token', true);
-      logger.warn('Merge Confidence API token rejected');
+      logger.error(
+        { err },
+        'Merge Confidence API token rejected - aborting run'
+      );
+      throw new ExternalHostError(err, hostType);
     }
+    if (err.statusCode >= 500 && err.statusCode < 600) {
+      logger.error({ err }, 'Merge Confidence API failure: 5xx - aborting run');
+      throw new ExternalHostError(err, hostType);
+    }
+    logger.debug({ err }, 'Error fetching merge confidence');
   }
-  await packageCache.set('merge-confidence', token + url, confidence, 60);
+  await packageCache.set(hostType, token + url, confidence, 60);
   return confidence;
 }

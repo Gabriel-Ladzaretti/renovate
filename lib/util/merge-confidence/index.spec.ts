@@ -1,4 +1,6 @@
 import * as httpMock from '../../../test/http-mock';
+import { EXTERNAL_HOST_ERROR } from '../../constants/error-messages';
+import { logger } from '../../logger';
 import * as memCache from '../cache/memory';
 import * as hostRules from '../host-rules';
 import {
@@ -121,7 +123,7 @@ describe('util/merge-confidence/index', () => {
       ).toBe('high');
     });
 
-    it('returns undefined if invalid confidence level', async () => {
+    it('returns neutral if invalid confidence level', async () => {
       hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       const datasource = 'npm';
       const depName = 'renovate';
@@ -141,10 +143,37 @@ describe('util/merge-confidence/index', () => {
           newVersion,
           'minor'
         )
-      ).toBeUndefined();
+      ).toBe('neutral');
     });
 
-    it('returns undefined if exception from API', async () => {
+    it('returns neutral if non 403/5xx exception from API', async () => {
+      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      const datasource = 'npm';
+      const depName = 'renovate';
+      const currentVersion = '25.0.0';
+      const newVersion = '25.4.0';
+      httpMock
+        .scope('https://badges.renovateapi.com')
+        .get(
+          `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+        )
+        .reply(404);
+      expect(
+        await getMergeConfidenceLevel(
+          datasource,
+          depName,
+          currentVersion,
+          newVersion,
+          'minor'
+        )
+      ).toBe('neutral');
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.anything(),
+        'Error fetching merge confidence'
+      );
+    });
+
+    it('throws on 403-Forbidden from API', async () => {
       hostRules.add({ hostType: 'merge-confidence', token: '123test' });
       const datasource = 'npm';
       const depName = 'renovate';
@@ -156,33 +185,48 @@ describe('util/merge-confidence/index', () => {
           `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
         )
         .reply(403);
-      expect(
-        await getMergeConfidenceLevel(
+
+      await expect(
+        getMergeConfidenceLevel(
           datasource,
           depName,
           currentVersion,
           newVersion,
           'minor'
         )
-      ).toBeUndefined();
+      ).rejects.toThrow(EXTERNAL_HOST_ERROR);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.anything(),
+        'Merge Confidence API token rejected - aborting run'
+      );
+    });
 
-      // FIXME: no cache hit
+    it('throws on 5xx host errors from API', async () => {
+      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      const datasource = 'npm';
+      const depName = 'renovate';
+      const currentVersion = '25.0.0';
+      const newVersion = '25.4.0';
       httpMock
         .scope('https://badges.renovateapi.com')
         .get(
-          `/packages/${datasource}/${depName}-new/${newVersion}/confidence.api/${currentVersion}`
+          `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
         )
-        .reply(403);
-      // memory cache
-      expect(
-        await getMergeConfidenceLevel(
+        .reply(503);
+
+      await expect(
+        getMergeConfidenceLevel(
           datasource,
-          depName + '-new',
+          depName,
           currentVersion,
           newVersion,
           'minor'
         )
-      ).toBeUndefined();
+      ).rejects.toThrow(EXTERNAL_HOST_ERROR);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.anything(),
+        'Merge Confidence API failure: 5xx - aborting run'
+      );
     });
 
     it('returns high if pinning digest', async () => {
