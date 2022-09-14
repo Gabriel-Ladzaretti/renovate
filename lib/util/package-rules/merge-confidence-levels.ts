@@ -5,14 +5,14 @@ import { Matcher } from './base';
 export class MergeConfidenceMatcher extends Matcher {
   override matches(
     { mergeConfidenceLevel }: PackageRuleInputConfig,
-    { matchMergeConfidenceLevels }: PackageRule
+    { matchConfidence }: PackageRule
   ): boolean | null {
-    if (is.undefined(matchMergeConfidenceLevels)) {
+    if (is.undefined(matchConfidence)) {
       return null;
     }
     return (
       is.truthy(mergeConfidenceLevel) &&
-      matchMergeConfidenceLevels.includes(mergeConfidenceLevel)
+      matchConfidence.includes(mergeConfidenceLevel)
     );
   }
 }

@@ -318,7 +318,7 @@ export async function validateConfig(
               'matchSourceUrlPrefixes',
               'matchSourceUrls',
               'matchUpdateTypes',
-              'matchMergeConfidenceLevels',
+              'matchConfidence',
             ];
             if (key === 'packageRules') {
               for (const [subIndex, packageRule] of val.entries()) {

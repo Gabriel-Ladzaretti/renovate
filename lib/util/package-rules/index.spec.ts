@@ -631,11 +631,11 @@ describe('util/package-rules/index', () => {
     expect(res.x).toBeUndefined();
   });
 
-  it('matches matchMergeConfidenceLevels', () => {
+  it('matches matchConfidence', () => {
     const config: TestConfig = {
       packageRules: [
         {
-          matchMergeConfidenceLevels: ['high'],
+          matchConfidence: ['high'],
           x: 1,
         },
       ],
@@ -649,11 +649,11 @@ describe('util/package-rules/index', () => {
     expect(res.x).toBe(1);
   });
 
-  it('non-matches matchMergeConfidenceLevels', () => {
+  it('non-matches matchConfidence', () => {
     const config: TestConfig = {
       packageRules: [
         {
-          matchMergeConfidenceLevels: ['high'],
+          matchConfidence: ['high'],
           x: 1,
         },
       ],
@@ -667,11 +667,11 @@ describe('util/package-rules/index', () => {
     expect(res.x).toBeUndefined();
   });
 
-  it('handles matchMergeConfidenceLevels when missing mergeConfidenceLevel', () => {
+  it('handles matchConfidence when missing mergeConfidenceLevel', () => {
     const config: TestConfig = {
       packageRules: [
         {
-          matchMergeConfidenceLevels: ['high'],
+          matchConfidence: ['high'],
           x: 1,
         },
       ],

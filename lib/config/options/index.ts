@@ -1137,7 +1137,7 @@ const options: RenovateOptions[] = [
     env: false,
   },
   {
-    name: 'matchMergeConfidenceLevels',
+    name: 'matchConfidence',
     description:
       'Merge confidence levels to match against (`low`, `neutral`, `high`, `very high`). Valid only within `packageRules` object.',
     type: 'array',

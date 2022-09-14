@@ -309,7 +309,7 @@ export interface PackageRule
   matchSourceUrlPrefixes?: string[];
   matchSourceUrls?: string[];
   matchUpdateTypes?: UpdateType[];
-  matchMergeConfidenceLevels?: MergeConfidence[];
+  matchConfidence?: MergeConfidence[];
   registryUrls?: string[];
 }
 
