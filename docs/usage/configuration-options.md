@@ -1888,21 +1888,38 @@ For example to apply a special label for Major updates:
 }
 ```
 
-### matchMergeConfidenceLevels
+### matchConfidence
 
-Use this field to match rules against merge confidence data of given updates.
+Use this field to match rules against [merge confidence](https://docs.renovatebot.com/merge-confidence/) data of given updates.
 For example to group high merge confidence updates:
 
 ```json
 {
   "packageRules": [
     {
-      "matchMergeConfidenceLevels": ["high", "very high"],
+      "matchConfidence": ["high", "very high"],
       "groupName": "high merge confidence"
     }
   ]
 }
 ```
+
+This feature requires an API token. Set it via Host rules under the `merge-confidence` HostType:
+
+```json
+{
+  "hostRules": [
+    {
+      "hostType": "merge-confidence",
+      "token": "********"
+    }
+  ]
+}
+```
+
+<!-- prettier-ignore -->
+!!! note
+    This configuration option is dependent on an API key, therefore it is effectively disabled if none is set.
 
 ### customChangelogUrl
 

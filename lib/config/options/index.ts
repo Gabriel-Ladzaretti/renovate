@@ -1149,6 +1149,7 @@ const options: RenovateOptions[] = [
     mergeable: true,
     cli: false,
     env: false,
+    experimental: true,
   },
   {
     name: 'matchUpdateTypes',
