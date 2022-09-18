@@ -56,6 +56,7 @@ export async function getMergeConfidenceLevel(
   newVersion: string,
   updateType: UpdateType
 ): Promise<MergeConfidence | undefined> {
+  logger.trace('getMergeConfidenceLevel() - Start');
   const { token } = hostRules.find({
     url: 'https://badges.renovateapi.com',
     hostType,
@@ -83,19 +84,41 @@ export async function getMergeConfidenceLevel(
       confidence = res.confidence;
     }
   } catch (err) {
-    if (err.statusCode === 403) {
-      logger.error(
-        { err },
-        'Merge Confidence API token rejected - aborting run'
-      );
-      throw new ExternalHostError(err, hostType);
-    }
-    if (err.statusCode >= 500 && err.statusCode < 600) {
-      logger.error({ err }, 'Merge Confidence API failure: 5xx - aborting run');
-      throw new ExternalHostError(err, hostType);
-    }
+    errorhandler(err);
     logger.debug({ err }, 'Error fetching merge confidence');
   }
   await packageCache.set(hostType, token + url, confidence, 60);
+  logger.trace('getMergeConfidenceLevel() - End');
   return confidence;
+}
+
+export async function checkConfidenceApi(): Promise<void> {
+  logger.trace('checkConfidenceApi() - Start');
+  const { token } = hostRules.find({
+    url: 'https://badges.renovateapi.com',
+    hostType,
+  });
+  if (!token) {
+    return;
+  }
+  const url = `https://badges.renovateapi.com/packages/datasource/depName/newVersion/confidence.api/currentVersion`;
+  try {
+    await http.getJson<{ confidence: MergeConfidence }>(url);
+  } catch (err) {
+    errorhandler(err);
+  }
+  logger.debug('Merge Confidence API - successfully authenticated');
+  logger.trace('checkConfidenceApi() - End');
+  return;
+}
+
+function errorhandler(err: any): void {
+  if (err.statusCode === 403) {
+    logger.error({ err }, 'Merge Confidence API token rejected - aborting run');
+    throw new ExternalHostError(err, hostType);
+  }
+  if (err.statusCode >= 500 && err.statusCode < 600) {
+    logger.error({ err }, 'Merge Confidence API failure: 5xx - aborting run');
+    throw new ExternalHostError(err, hostType);
+  }
 }

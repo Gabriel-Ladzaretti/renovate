@@ -4,6 +4,7 @@ import { logger } from '../../logger';
 import * as memCache from '../cache/memory';
 import * as hostRules from '../host-rules';
 import {
+  checkConfidenceApi,
   getMergeConfidenceLevel,
   isActiveConfidenceLevel,
   satisfiesConfidenceLevel,
@@ -88,7 +89,7 @@ describe('util/merge-confidence/index', () => {
       ).toBe('high');
     });
 
-    it('returns neutral if no token', async () => {
+    it('returns undefined if no token', async () => {
       hostRules.clear();
       expect(
         await getMergeConfidenceLevel(
@@ -112,6 +113,7 @@ describe('util/merge-confidence/index', () => {
           `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
         )
         .reply(200, { confidence: 'high' });
+
       expect(
         await getMergeConfidenceLevel(
           datasource,
@@ -135,6 +137,7 @@ describe('util/merge-confidence/index', () => {
           `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
         )
         .reply(200, { nope: 'nope' });
+
       expect(
         await getMergeConfidenceLevel(
           datasource,
@@ -158,6 +161,7 @@ describe('util/merge-confidence/index', () => {
           `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
         )
         .reply(404);
+
       expect(
         await getMergeConfidenceLevel(
           datasource,
@@ -239,6 +243,60 @@ describe('util/merge-confidence/index', () => {
           'pinDigest'
         )
       ).toBe('high');
+    });
+
+    describe('checkConfidenceAPi', () => {
+      it('resolves if no token', async () => {
+        hostRules.clear();
+        await expect(checkConfidenceApi()).toResolve();
+      });
+
+      it('resolves if when token is valid', async () => {
+        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+        httpMock
+          .scope('https://badges.renovateapi.com')
+          .get(
+            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
+          )
+          .reply(200);
+
+        await expect(checkConfidenceApi()).toResolve();
+        expect(logger.debug).toHaveBeenCalledWith(
+          'Merge Confidence API - successfully authenticated'
+        );
+      });
+
+      it('throws on 403-Forbidden from mc API', async () => {
+        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+        httpMock
+          .scope('https://badges.renovateapi.com')
+          .get(
+            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
+          )
+          .reply(403);
+
+        await expect(checkConfidenceApi()).rejects.toThrow(EXTERNAL_HOST_ERROR);
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.anything(),
+          'Merge Confidence API token rejected - aborting run'
+        );
+      });
+
+      it('throws on 5xx host errors from mc API', async () => {
+        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+        httpMock
+          .scope('https://badges.renovateapi.com')
+          .get(
+            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
+          )
+          .reply(503);
+
+        await expect(checkConfidenceApi()).rejects.toThrow(EXTERNAL_HOST_ERROR);
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.anything(),
+          'Merge Confidence API failure: 5xx - aborting run'
+        );
+      });
     });
   });
 });
