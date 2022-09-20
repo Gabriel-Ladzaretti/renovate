@@ -57,10 +57,7 @@ export async function getMergeConfidenceLevel(
   updateType: UpdateType
 ): Promise<MergeConfidence | undefined> {
   logger.trace('getMergeConfidenceLevel() - Start');
-  const { token } = hostRules.find({
-    url: 'https://badges.renovateapi.com',
-    hostType,
-  });
+  const token = getToken();
   if (!token) {
     return undefined;
   }
@@ -94,10 +91,7 @@ export async function getMergeConfidenceLevel(
 
 export async function checkConfidenceApi(): Promise<void> {
   logger.trace('checkConfidenceApi() - Start');
-  const { token } = hostRules.find({
-    url: 'https://badges.renovateapi.com',
-    hostType,
-  });
+  const token = getToken();
   if (!token) {
     return;
   }
@@ -110,6 +104,13 @@ export async function checkConfidenceApi(): Promise<void> {
   logger.debug('Merge Confidence API - successfully authenticated');
   logger.trace('checkConfidenceApi() - End');
   return;
+}
+
+function getToken(): string | undefined {
+  return hostRules.find({
+    url: 'https://badges.renovateapi.com',
+    hostType,
+  }).token;
 }
 
 function errorhandler(err: any): void {
