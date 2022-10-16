@@ -79,7 +79,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       config.rollbackPrs = true;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.9.7', updateType: 'rollback' },
         { newValue: '1.4.1', updateType: 'major' },
       ]);
@@ -91,7 +91,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       config.rollbackPrs = true;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^0.9.7', updateType: 'rollback' },
       ]);
     });
@@ -102,7 +102,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.4.4', updateType: 'pin' },
         { newValue: '0.9.7', updateType: 'minor' },
         { newValue: '1.4.1', updateType: 'major' },
@@ -117,7 +117,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.separateMinorPatch = true;
       config.lockedVersion = '0.4.0';
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { isLockfileUpdate: true, newValue: '^0.4.0', updateType: 'patch' },
         { newValue: '^0.9.0', updateType: 'minor' },
         { newValue: '^1.0.0', updateType: 'major' },
@@ -169,7 +169,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.4.4', updateType: 'pin' },
         { newValue: '0.9.7', updateType: 'minor' },
         { newValue: '1.4.1', updateType: 'major' },
@@ -271,7 +271,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.9.7', updateType: 'patch' },
         { newValue: '1.4.1', updateType: 'major' },
       ]);
@@ -296,7 +296,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.4.4', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'major' },
       ]);
@@ -309,7 +309,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
     });
@@ -331,12 +331,94 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.4.4', updateType: 'pin' },
         { newValue: '0.9.7', updateType: 'minor' },
         { newValue: '1.4.1', updateType: 'major' },
       ]);
     });
+
+    it.each`
+      strategy             | updates
+      ${'update-lockfile'} | ${[{ isLockfileUpdate: true, newValue: '*', newVersion: '0.9.7', updateType: 'minor' }, { isLockfileUpdate: true, newValue: '*', newVersion: '1.4.1', updateType: 'major' }]}
+      ${'pin'}             | ${[{ newValue: '0.4.0', updateType: 'pin' }, { newValue: '0.9.7', updateType: 'minor' }, { newValue: '1.4.1', updateType: 'major' }]}
+    `(
+      'supports for x-range-all for replaceStrategy = $strategy (with lockfile)',
+      async ({ strategy, updates }) => {
+        config.currentValue = '*';
+        config.rangeStrategy = strategy;
+        config.lockedVersion = '0.4.0';
+        config.depName = 'q';
+        config.datasource = NpmDatasource.id;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/q')
+          .reply(200, qJson);
+        expect(await lookup.lookupUpdates(config)).toMatchObject({ updates });
+      }
+    );
+
+    it.each`
+      strategy
+      ${'widen'}
+      ${'bump'}
+      ${'replace'}
+    `(
+      'doesnt offer updates for x-range-all (with lockfile) when replaceStrategy = $strategy',
+      async ({ strategy }) => {
+        config.currentValue = 'x';
+        config.rangeStrategy = strategy;
+        config.lockedVersion = '0.4.0';
+        config.depName = 'q';
+        config.datasource = NpmDatasource.id;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/q')
+          .reply(200, qJson);
+        expect((await lookup.lookupUpdates(config)).updates).toEqual([]);
+      }
+    );
+
+    it('supports pinning for x-range-all (no lockfile)', async () => {
+      config.currentValue = '*';
+      config.rangeStrategy = 'pin';
+      config.depName = 'q';
+      config.datasource = NpmDatasource.id;
+      httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
+      expect(await lookup.lookupUpdates(config)).toMatchObject({
+        updates: [{ newValue: '1.4.1', updateType: 'pin' }],
+      });
+    });
+
+    it('covers pinning an unsupported x-range-all value', async () => {
+      config.currentValue = '';
+      config.rangeStrategy = 'pin';
+      config.depName = 'q';
+      config.datasource = NpmDatasource.id;
+      httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
+      expect((await lookup.lookupUpdates(config)).updates).toEqual([]);
+    });
+
+    it.each`
+      strategy
+      ${'widen'}
+      ${'bump'}
+      ${'update-lockfile'}
+      ${'replace'}
+    `(
+      'doesnt offer updates for x-range-all (no lockfile) when replaceStrategy = $strategy',
+      async ({ strategy }) => {
+        config.currentValue = 'X';
+        config.rangeStrategy = strategy;
+        config.depName = 'q';
+        config.datasource = NpmDatasource.id;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/q')
+          .reply(200, qJson);
+        expect((await lookup.lookupUpdates(config)).updates).toEqual([]);
+      }
+    );
 
     it('ignores pinning for ranges when other upgrade exists', async () => {
       config.currentValue = '~0.9.0';
@@ -344,7 +426,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '0.9.7', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'major' },
       ]);
@@ -356,7 +438,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.0.1', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
@@ -394,7 +476,19 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
       const res = await lookup.lookupUpdates(config);
-      expect(res.updates).toBeEmptyArray();
+      expect(res.updates).toEqual([
+        {
+          bucket: 'non-major',
+          isLockfileUpdate: true,
+          isRange: true,
+          newMajor: 1,
+          newMinor: 2,
+          newValue: '~1.2.0',
+          newVersion: '1.2.1',
+          releaseTimestamp: '2015-04-25T22:25:48.180Z',
+          updateType: 'patch',
+        },
+      ]);
     });
 
     it('handles unconstrainedValue values', async () => {
@@ -429,7 +523,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.3.0 || ~1.4.0', updateType: 'minor' },
       ]);
     });
@@ -440,7 +534,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.4.0', updateType: 'minor' },
       ]);
     });
@@ -454,7 +548,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^2.0.0 || ^3.0.0', updateType: 'major' },
       ]);
     });
@@ -468,7 +562,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^3.0.0', updateType: 'major' },
       ]);
     });
@@ -479,7 +573,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.4.1', updateType: 'pin' },
       ]);
     });
@@ -491,7 +585,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.0.0', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
@@ -522,7 +616,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.3.0', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
@@ -534,7 +628,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.3.0', updateType: 'pin' },
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
@@ -546,7 +640,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.4.0', updateType: 'minor' },
       ]);
     });
@@ -557,7 +651,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.x', updateType: 'major' },
       ]);
     });
@@ -568,7 +662,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.4.x', updateType: 'minor' },
       ]);
     });
@@ -579,7 +673,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.2.x - 1.4.x', updateType: 'minor' },
       ]);
     });
@@ -590,7 +684,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1', updateType: 'major' },
       ]);
     });
@@ -601,7 +695,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.4', updateType: 'minor' },
       ]);
     });
@@ -612,7 +706,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~0.9.0', updateType: 'minor' },
         { newValue: '~1.4.0', updateType: 'major' },
       ]);
@@ -624,7 +718,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^0.9.0', updateType: 'minor' },
         { newValue: '^1.0.0', updateType: 'major' },
       ]);
@@ -653,7 +747,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         {
           newValue: '^1.0.0 || ^2.0.0 || ^3.0.0',
           updateType: 'major',
@@ -670,7 +764,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.x - 3.x', updateType: 'major' },
       ]);
     });
@@ -684,7 +778,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.x || 2.x || 3.x', updateType: 'major' },
       ]);
     });
@@ -698,7 +792,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/webpack')
         .reply(200, webpackJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1 || 2 || 3', updateType: 'major' },
       ]);
     });
@@ -709,7 +803,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.2.0 || ~1.3.0 || ~1.4.0', updateType: 'minor' },
       ]);
     });
@@ -729,7 +823,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '<= 0.9.7', updateType: 'minor' },
         { newValue: '<= 1.4.1', updateType: 'major' },
       ]);
@@ -741,7 +835,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '< 0.9.8', updateType: 'minor' },
         { newValue: '< 1.4.2', updateType: 'major' },
       ]);
@@ -753,7 +847,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '< 2', updateType: 'major' },
       ]);
     });
@@ -764,7 +858,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '<= 1.4', updateType: 'minor' },
       ]);
     });
@@ -775,7 +869,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '=1.4.1', updateType: 'minor' },
       ]);
     });
@@ -787,7 +881,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '<= 2', updateType: 'major' },
       ]);
     });
@@ -856,7 +950,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
       const res = await lookup.lookupUpdates(config);
-      expect(res.updates).toMatchSnapshot([]);
+      expect(res.updates).toMatchObject([]);
     });
 
     it('supports > latest versions if configured', async () => {
@@ -865,7 +959,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '2.0.3', updateType: 'major' },
       ]);
     });
@@ -892,7 +986,7 @@ describe('workers/repository/process/lookup/index', () => {
           { version: '2.1.0', isStable: false },
         ],
       });
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '2.0.0', updateType: 'major' },
       ]);
     });
@@ -1113,7 +1207,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://registry.npmjs.org')
         .get('/@types%2Fhelmet')
         .reply(200, helmetJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^0.0.35', updateType: 'patch' },
       ]);
     });
@@ -1176,7 +1270,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '^1.4.1', updateType: 'minor' },
       ]);
     });
@@ -1188,7 +1282,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.separateMinorPatch = true;
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.0.1', updateType: 'patch' },
         { newValue: '~1.4.1', updateType: 'minor' },
       ]);
@@ -1201,7 +1295,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.separateMinorPatch = true;
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '~1.0.1', updateType: 'patch' },
         { newValue: '~1.4.1', updateType: 'minor' },
       ]);
@@ -1213,7 +1307,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '>=1.4.1', updateType: 'minor' },
       ]);
     });
@@ -1225,7 +1319,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       config.separateMajorMinor = false;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '>=1.4.1', updateType: 'major' },
       ]);
     });
@@ -1236,7 +1330,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('rejects non-fully specified in-range updates', async () => {
@@ -1245,7 +1339,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('rejects complex range in-range updates', async () => {
@@ -1254,7 +1348,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.depName = 'q';
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('replaces non-range in-range updates', async () => {
@@ -1264,7 +1358,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.rangeStrategy = 'bump';
       config.currentValue = '1.0.0';
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([
         { newValue: '1.4.1', updateType: 'minor' },
       ]);
     });
@@ -1275,7 +1369,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.packageFile = 'package.json';
       config.currentValue = '1.0.0';
       httpMock.scope('https://pypi.org').get('/pypi/foo/json').reply(404);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('handles pypi 404', async () => {
@@ -1287,7 +1381,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://api.github.com')
         .get('/repos/some/repo/git/refs/tags?per_page=100')
         .reply(404);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('handles packagist', async () => {
@@ -1300,7 +1394,7 @@ describe('workers/repository/process/lookup/index', () => {
         .scope('https://packagist.org')
         .get('/packages/foo/bar.json')
         .reply(404);
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('handles unknown datasource', async () => {
@@ -1308,7 +1402,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = 'typo';
       config.packageFile = 'package.json';
       config.currentValue = '1.0.0';
-      expect((await lookup.lookupUpdates(config)).updates).toMatchSnapshot([]);
+      expect((await lookup.lookupUpdates(config)).updates).toMatchObject([]);
     });
 
     it('handles PEP440', async () => {
@@ -1324,7 +1418,7 @@ describe('workers/repository/process/lookup/index', () => {
       config.datasource = NpmDatasource.id;
       httpMock.scope('https://registry.npmjs.org').get('/q').reply(200, qJson);
       const res = await lookup.lookupUpdates(config);
-      expect(res.updates).toMatchSnapshot([
+      expect(res.updates).toMatchObject([
         { newValue: '==0.9.4', updateType: 'pin' },
         { newValue: '==0.9.7', updateType: 'patch' },
         { newValue: '==1.4.1', updateType: 'major' },

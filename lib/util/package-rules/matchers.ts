@@ -1,4 +1,5 @@
 import { BaseBranchesMatcher } from './base-branches';
+import { CurrentValueMatcher } from './current-value';
 import { CurrentVersionMatcher } from './current-version';
 import { DatasourcesMatcher } from './datasources';
 import { DepTypesMatcher } from './dep-types';
@@ -34,4 +35,5 @@ matchers.push([new DatasourcesMatcher()]);
 matchers.push([new UpdateTypesMatcher()]);
 matchers.push([new MergeConfidenceMatcher()]);
 matchers.push([new SourceUrlsMatcher(), new SourceUrlPrefixesMatcher()]);
+matchers.push([new CurrentValueMatcher()]);
 matchers.push([new CurrentVersionMatcher()]);
