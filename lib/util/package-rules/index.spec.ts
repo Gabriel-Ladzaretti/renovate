@@ -1,6 +1,4 @@
 import type { PackageRuleInputConfig, UpdateType } from '../../config/types';
-import { ProgrammingLanguage } from '../../constants';
-
 import { DockerDatasource } from '../../modules/datasource/docker';
 import { OrbDatasource } from '../../modules/datasource/orb';
 import type { MergeConfidence } from '../merge-confidence';
@@ -296,7 +294,7 @@ describe('util/package-rules/index', () => {
     };
     const dep = {
       depType: 'dependencies',
-      language: ProgrammingLanguage.JavaScript,
+      language: 'js',
       manager: 'meteor',
       depName: 'node',
     };
@@ -316,7 +314,7 @@ describe('util/package-rules/index', () => {
     };
     const dep = {
       depType: 'dependencies',
-      language: ProgrammingLanguage.Python,
+      language: 'python',
       manager: 'pipenv',
       depName: 'node',
     };
@@ -328,10 +326,7 @@ describe('util/package-rules/index', () => {
     const config: TestConfig = {
       packageRules: [
         {
-          matchLanguages: [
-            ProgrammingLanguage.JavaScript,
-            ProgrammingLanguage.NodeJS,
-          ],
+          matchLanguages: ['js', 'node'],
           matchPackageNames: ['node'],
           x: 1,
         },
@@ -339,7 +334,7 @@ describe('util/package-rules/index', () => {
     };
     const dep = {
       depType: 'dependencies',
-      language: ProgrammingLanguage.JavaScript,
+      language: 'js',
       manager: 'meteor',
       depName: 'node',
     };
@@ -351,7 +346,7 @@ describe('util/package-rules/index', () => {
     const config: TestConfig = {
       packageRules: [
         {
-          matchLanguages: [ProgrammingLanguage.Docker],
+          matchLanguages: ['docker'],
           matchPackageNames: ['node'],
           x: 1,
         },
@@ -359,7 +354,7 @@ describe('util/package-rules/index', () => {
     };
     const dep = {
       depType: 'dependencies',
-      language: ProgrammingLanguage.Python,
+      language: 'python',
       manager: 'pipenv',
       depName: 'node',
     };

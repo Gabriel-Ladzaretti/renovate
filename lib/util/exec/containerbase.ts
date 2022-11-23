@@ -35,6 +35,11 @@ const allToolConfig: Record<string, ToolConfig> = {
     depName: 'corepack',
     versioning: npmVersioningId,
   },
+  dotnet: {
+    datasource: 'dotnet',
+    depName: 'dotnet-sdk',
+    versioning: semverVersioningId,
+  },
   erlang: {
     datasource: 'github-releases',
     depName: 'containerbase/erlang-prebuild',
@@ -70,6 +75,11 @@ const allToolConfig: Record<string, ToolConfig> = {
     depName: 'lerna',
     versioning: npmVersioningId,
   },
+  nix: {
+    datasource: 'github-tags',
+    depName: 'NixOS/nix',
+    versioning: semverVersioningId,
+  },
   node: {
     datasource: 'node',
     depName: 'node',
@@ -80,6 +90,11 @@ const allToolConfig: Record<string, ToolConfig> = {
     depName: 'npm',
     hash: true,
     versioning: npmVersioningId,
+  },
+  php: {
+    datasource: 'github-releases',
+    depName: 'containerbase/php-prebuild',
+    versioning: composerVersioningId,
   },
   pnpm: {
     datasource: 'npm',

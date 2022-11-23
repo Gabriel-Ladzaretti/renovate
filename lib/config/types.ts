@@ -1,5 +1,6 @@
 import type { LogLevel } from 'bunyan';
 import type { Range } from 'semver';
+import type { PlatformId } from '../constants';
 import type { HostRule } from '../types';
 import type { GitNoVerifyOption } from '../util/git/types';
 import type { MergeConfidence } from '../util/merge-confidence';
@@ -101,7 +102,7 @@ export interface GlobalOnlyConfig {
   privateKeyPathOld?: string;
   redisUrl?: string;
   repositories?: RenovateRepository[];
-  platform?: string;
+  platform?: PlatformId;
   endpoint?: string;
 }
 
@@ -129,7 +130,7 @@ export interface RepoGlobalConfig {
   localDir?: string;
   cacheDir?: string;
   containerbaseDir?: string;
-  platform?: string;
+  platform?: PlatformId;
   endpoint?: string;
 }
 
@@ -359,6 +360,8 @@ export interface RenovateOptionBase {
   experimentalDescription?: string;
 
   experimentalIssues?: number[];
+
+  advancedUse?: boolean;
 }
 
 export interface RenovateArrayOption<
@@ -436,7 +439,7 @@ export interface PackageRuleInputConfig extends Record<string, unknown> {
   depName?: string;
   currentValue?: string | null;
   currentVersion?: string;
-  lockedVersion?: string | null;
+  lockedVersion?: string;
   updateType?: UpdateType;
   mergeConfidenceLevel?: MergeConfidence;
   isBump?: boolean;
