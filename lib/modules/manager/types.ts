@@ -98,6 +98,7 @@ export interface Package<T> extends ManagerData<T> {
   target?: string;
   versioning?: string;
   dataType?: string;
+  enabled?: boolean;
 
   // npm manager
   bumpVersion?: ReleaseType | string;
@@ -137,6 +138,7 @@ export interface LookupUpdate {
   checksumUrl?: string;
   downloadUrl?: string;
   releaseTimestamp?: any;
+  registryUrl?: string;
 }
 
 export interface PackageDependency<T = Record<string, any>> extends Package<T> {
