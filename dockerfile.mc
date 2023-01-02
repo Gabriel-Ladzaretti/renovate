@@ -17,7 +17,7 @@ WORKDIR ${APP_ROOT}
 
 COPY . .
 
-RUN yarn install && \
+RUN yarn install --frozen-lockfile && \
     yarn build
 
 
@@ -38,7 +38,7 @@ COPY --from=builder ${APP_ROOT}/dist ./dist
 COPY --from=builder ${APP_ROOT}/tools ./tools
 COPY package.json yarn.lock ./
 
-RUN yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile --prod
 
 CMD ["node", "./dist/renovate.js"]
 # must be numeric if this should work with openshift
