@@ -103,6 +103,18 @@ describe('util/merge-confidence/index', () => {
         ).toBeUndefined();
       });
 
+      it('returns undefined if datasource is unsupported', async () => {
+        expect(
+          await getMergeConfidenceLevel(
+            'not-npm',
+            'renovate',
+            '24.2.0',
+            '25.0.0',
+            'major'
+          )
+        ).toBeUndefined();
+      });
+
       it('returns valid confidence level', async () => {
         const datasource = 'npm';
         const depName = 'renovate';
