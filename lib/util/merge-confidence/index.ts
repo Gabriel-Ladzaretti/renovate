@@ -8,6 +8,8 @@ import { Http } from '../http';
 const hostType = 'merge-confidence';
 const http = new Http(hostType);
 
+const supportedDatasources = ['npm', 'maven', 'pypi'];
+
 const MERGE_CONFIDENCE = ['low', 'neutral', 'high', 'very high'] as const;
 type MergeConfidenceTuple = typeof MERGE_CONFIDENCE;
 export type MergeConfidence = MergeConfidenceTuple[number];
@@ -34,20 +36,22 @@ export function satisfiesConfidenceLevel(
   return confidenceLevels[confidence] >= confidenceLevels[minimumConfidence];
 }
 
-const updateTypeConfidenceMapping: Record<UpdateType, MergeConfidence | null> =
-  {
-    pin: 'high',
-    digest: 'neutral',
-    pinDigest: 'high',
-    bump: 'neutral',
-    lockFileMaintenance: 'neutral',
-    lockfileUpdate: 'neutral',
-    rollback: 'neutral',
-    replacement: 'neutral',
-    major: null,
-    minor: null,
-    patch: null,
-  };
+const updateTypeConfidenceMapping: Record<
+  UpdateType,
+  MergeConfidence | undefined
+> = {
+  pin: 'high',
+  digest: 'neutral',
+  pinDigest: 'high',
+  bump: 'neutral',
+  lockFileMaintenance: 'neutral',
+  lockfileUpdate: 'neutral',
+  rollback: 'neutral',
+  replacement: 'neutral',
+  major: undefined,
+  minor: undefined,
+  patch: undefined,
+};
 
 export async function getMergeConfidenceLevel(
   datasource: string,
@@ -56,24 +60,34 @@ export async function getMergeConfidenceLevel(
   newVersion: string,
   updateType: UpdateType
 ): Promise<MergeConfidence | undefined> {
-  logger.trace('getMergeConfidenceLevel() - Start');
+  logger.trace('getMergeConfidenceLevel - Start');
   const token = getToken();
   if (!token) {
     return undefined;
   }
+
+  if (!supportedDatasources.includes(datasource)) {
+    return undefined;
+  }
+
   if (!(currentVersion && newVersion && updateType)) {
     return 'neutral';
   }
+
   const mappedConfidence = updateTypeConfidenceMapping[updateType];
   if (mappedConfidence) {
     return mappedConfidence;
   }
+
   const url = `https://badges.renovateapi.com/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`;
-  const cachedResult = await packageCache.get(hostType, token + url);
+  const cacheKey = `${token}${url}`;
+  const cachedResult = await packageCache.get(hostType, cacheKey);
+
   // istanbul ignore if
   if (cachedResult) {
     return cachedResult;
   }
+
   let confidence: MergeConfidence = 'neutral';
   try {
     const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
@@ -84,13 +98,14 @@ export async function getMergeConfidenceLevel(
     errorhandler(err);
     logger.debug({ err }, 'Error fetching merge confidence');
   }
-  await packageCache.set(hostType, token + url, confidence, 60);
-  logger.trace('getMergeConfidenceLevel() - End');
+
+  await packageCache.set(hostType, cacheKey, confidence, 60);
+  logger.trace('getMergeConfidenceLevel - End');
   return confidence;
 }
 
 export async function checkConfidenceApi(): Promise<void> {
-  logger.trace('checkConfidenceApi() - Start');
+  logger.trace('checkConfidenceApi - Start');
   const token = getToken();
   if (!token) {
     return;
@@ -102,7 +117,7 @@ export async function checkConfidenceApi(): Promise<void> {
     errorhandler(err);
   }
   logger.debug('Merge Confidence API - successfully authenticated');
-  logger.trace('checkConfidenceApi() - End');
+  logger.trace('checkConfidenceApi - End');
   return;
 }
 
