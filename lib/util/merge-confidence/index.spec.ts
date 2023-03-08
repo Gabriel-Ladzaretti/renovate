@@ -354,6 +354,21 @@ describe('util/merge-confidence/index', () => {
           'merge confidence api failure: 5xx - aborting run'
         );
       });
+
+      it('throws on ECONNRESET', async () => {
+        httpMock
+          .scope(apiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .replyWithError({ code: 'ECONNRESET' });
+
+        await expect(checkMergeConfidenceApiHealth()).rejects.toThrow(
+          EXTERNAL_HOST_ERROR
+        );
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.anything(),
+          'merge confidence api request failed - aborting run'
+        );
+      });
     });
   });
 });

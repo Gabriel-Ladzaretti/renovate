@@ -211,10 +211,14 @@ async function queryApi(
  * @throws {ExternalHostError} If the error is related to an issue with the external API host.
  *
  * @remarks
- * This function throws an ExternalHostError if authentication fails or an internal server error occurs.
- * Otherwise, it logs the error at the debug level.
+ * This function throws an ExternalHostError if a timeout or connection reset error, authentication failure, or internal server error occurs during the request.
  */
 function apiErrorHandler(err: any): void {
+  if (err.code === 'ETIMEDOUT' || err.code === 'ECONNRESET') {
+    logger.error({ err }, 'merge confidence api request failed - aborting run');
+    throw new ExternalHostError(err, hostType);
+  }
+
   if (err.statusCode === 403) {
     logger.error({ err }, 'merge confidence api token rejected - aborting run');
     throw new ExternalHostError(err, hostType);

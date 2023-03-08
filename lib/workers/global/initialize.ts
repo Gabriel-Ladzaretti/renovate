@@ -69,13 +69,13 @@ export async function globalInitialize(
 ): Promise<RenovateConfig> {
   let config = config_;
   await checkVersions();
-  await checkMergeConfidenceApiHealth();
   config = await initPlatform(config);
   config = await setDirectories(config);
   await packageCache.init(config);
   limitCommitsPerRun(config);
   setEmojiConfig(config);
   setGlobalHostRules(config);
+  await checkMergeConfidenceApiHealth();
   return config;
 }
 
