@@ -1,8 +1,12 @@
 import upath from 'upath';
 import { logger } from '../../../logger';
-import { getFileContentMap } from '../../../util/fs';
+import { getLocalFiles } from '../../../util/fs';
 import { MavenDatasource } from '../../datasource/maven';
-import type { ExtractConfig, PackageDependency, PackageFile } from '../types';
+import type {
+  ExtractConfig,
+  PackageDependency,
+  PackageFileContent,
+} from '../types';
 import { parseCatalog } from './extract/catalog';
 import {
   isGcvPropsFile,
@@ -26,7 +30,7 @@ import {
   toAbsolutePath,
 } from './utils';
 
-const datasource = MavenDatasource.id;
+const mavenDatasource = MavenDatasource.id;
 
 function getRegistryUrlsForDep(
   packageRegistries: PackageRegistry[],
@@ -48,18 +52,18 @@ function getRegistryUrlsForDep(
 export async function extractAllPackageFiles(
   config: ExtractConfig,
   packageFiles: string[]
-): Promise<PackageFile[] | null> {
+): Promise<PackageFileContent[] | null> {
   const extractedDeps: PackageDependency<GradleManagerData>[] = [];
   const varRegistry: VariableRegistry = {};
-  const packageFilesByName: Record<string, PackageFile> = {};
+  const packageFilesByName: Record<string, PackageFileContent> = {};
   const packageRegistries: PackageRegistry[] = [];
   const reorderedFiles = reorderFiles(packageFiles);
-  const fileContents = await getFileContentMap(packageFiles, true);
+  const fileContents = await getLocalFiles(packageFiles);
 
   for (const packageFile of reorderedFiles) {
     packageFilesByName[packageFile] = {
       packageFile,
-      datasource,
+      datasource: mavenDatasource,
       deps: [],
     };
 
@@ -127,22 +131,28 @@ export async function extractAllPackageFiles(
     const key = dep.managerData?.packageFile;
     // istanbul ignore else
     if (key) {
-      let pkgFile: PackageFile = packageFilesByName[key];
+      let pkgFile: PackageFileContent = packageFilesByName[key];
       // istanbul ignore if: won't happen if "apply from" processes only initially known files
       if (!pkgFile) {
         pkgFile = {
           packageFile: key,
-          datasource,
+          datasource: mavenDatasource,
           deps: [],
         };
       }
 
-      dep.registryUrls = getRegistryUrlsForDep(packageRegistries, dep);
+      if (!dep.datasource) {
+        dep.datasource = mavenDatasource;
+      }
 
-      if (!dep.depType) {
-        dep.depType = key.startsWith('buildSrc')
-          ? 'devDependencies'
-          : 'dependencies';
+      if (dep.datasource === mavenDatasource) {
+        dep.registryUrls = getRegistryUrlsForDep(packageRegistries, dep);
+
+        if (!dep.depType) {
+          dep.depType = key.startsWith('buildSrc')
+            ? 'devDependencies'
+            : 'dependencies';
+        }
       }
 
       const depAlreadyInPkgFile = pkgFile.deps.some(

@@ -115,6 +115,7 @@ export interface RepoGlobalConfig {
   allowScripts?: boolean;
   allowedPostUpgradeCommands?: string[];
   binarySource?: 'docker' | 'global' | 'install' | 'hermit';
+  cacheHardTtlMinutes?: number;
   customEnvVariables?: Record<string, string>;
   dockerChildPrefix?: string;
   dockerImagePrefix?: string;
@@ -143,6 +144,7 @@ export interface LegacyAdminConfig {
   onboardingBranch?: string;
   onboardingCommitMessage?: string;
   onboardingNoDeps?: boolean;
+  onboardingRebaseCheckbox?: boolean;
   onboardingPrTitle?: string;
   onboardingConfig?: RenovateSharedConfig;
   onboardingConfigFileName?: string;
@@ -242,6 +244,7 @@ export interface RenovateConfig
 
   warnings?: ValidationMessage[];
   vulnerabilityAlerts?: RenovateSharedConfig;
+  osvVulnerabilityAlerts?: boolean;
   regexManagers?: RegExManager[];
 
   fetchReleaseNotes?: boolean;
@@ -260,6 +263,7 @@ export interface AssigneesAndReviewersConfig {
   assigneesFromCodeOwners?: boolean;
   assignees?: string[];
   assigneesSampleSize?: number;
+  ignoreReviewers?: string[];
   reviewersFromCodeOwners?: boolean;
   reviewers?: string[];
   reviewersSampleSize?: number;
@@ -443,6 +447,7 @@ export interface PackageRuleInputConfig extends Record<string, unknown> {
   depType?: string;
   depTypes?: string[];
   depName?: string;
+  packageName?: string | null;
   currentValue?: string | null;
   currentVersion?: string;
   lockedVersion?: string;

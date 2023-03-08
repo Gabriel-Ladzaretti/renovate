@@ -1,7 +1,8 @@
 import is from '@sindresorhus/is';
 import type { RenovateConfig } from '../../../config/types';
 import { logger } from '../../../logger';
-import type { PackageFile } from '../../../modules/manager/types';
+import { hashMap } from '../../../modules/manager';
+import type { PackageFileContent } from '../../../modules/manager/types';
 import { getCache } from '../../../util/cache/repository';
 import type { BaseBranchCache } from '../../../util/cache/repository/types';
 import { checkGithubToken as ensureGithubToken } from '../../../util/check-token';
@@ -14,12 +15,13 @@ import { branchifyUpgrades } from '../updates/branchify';
 import { raiseDeprecationWarnings } from './deprecated';
 import { fetchUpdates } from './fetch';
 import { sortBranches } from './sort';
+import { Vulnerabilities } from './vulnerabilities';
 import { WriteUpdateResult, writeUpdates } from './write';
 
 export interface ExtractResult {
   branches: BranchConfig[];
   branchList: string[];
-  packageFiles: Record<string, PackageFile[]>;
+  packageFiles: Record<string, PackageFileContent[]>;
 }
 
 export interface StatsResult {
@@ -34,7 +36,7 @@ export interface Stats {
 
 // istanbul ignore next
 function extractStats(
-  packageFiles: Record<string, PackageFile[]>
+  packageFiles: Record<string, PackageFileContent[]>
 ): Stats | null {
   if (!packageFiles) {
     return null;
@@ -80,6 +82,27 @@ export function isCacheExtractValid(
     logger.debug('Cached extract result cannot be used due to config change');
     return false;
   }
+  if (!cachedExtract.extractionFingerprints) {
+    logger.debug(
+      'Cached extract is missing extractionFingerprints, so cannot be used'
+    );
+    return false;
+  }
+  const changedManagers = new Set();
+  for (const [manager, fingerprint] of Object.entries(
+    cachedExtract.extractionFingerprints
+  )) {
+    if (fingerprint !== hashMap.get(manager)) {
+      changedManagers.add(manager);
+    }
+  }
+  if (changedManagers.size > 0) {
+    logger.debug(
+      { changedManagers: [...changedManagers] },
+      'Manager fingerprint(s) have changed, extract cache cannot be reused'
+    );
+    return false;
+  }
   logger.debug(
     `Cached extract for sha=${baseBranchSha} is valid and can be used`
   );
@@ -88,11 +111,11 @@ export function isCacheExtractValid(
 
 export async function extract(
   config: RenovateConfig
-): Promise<Record<string, PackageFile[]>> {
+): Promise<Record<string, PackageFileContent[]>> {
   logger.debug('extract()');
   const { baseBranch } = config;
   const baseBranchSha = getBranchCommit(baseBranch!);
-  let packageFiles: Record<string, PackageFile[]>;
+  let packageFiles: Record<string, PackageFileContent[]>;
   const cache = getCache();
   cache.scan ||= {};
   const cachedExtract = cache.scan[baseBranch!];
@@ -114,11 +137,14 @@ export async function extract(
     }
   } else {
     await checkoutBranch(baseBranch!);
-    packageFiles = await extractAllDependencies(config);
+    const extractResult = (await extractAllDependencies(config)) || {};
+    packageFiles = extractResult.packageFiles;
+    const { extractionFingerprints } = extractResult;
     // TODO: fix types (#7154)
     cache.scan[baseBranch!] = {
       sha: baseBranchSha!,
       configHash,
+      extractionFingerprints,
       packageFiles,
     };
     // Clean up cached branch extracts
@@ -141,10 +167,25 @@ export async function extract(
   return packageFiles;
 }
 
+async function fetchVulnerabilities(
+  config: RenovateConfig,
+  packageFiles: Record<string, PackageFileContent[]>
+): Promise<void> {
+  if (config.osvVulnerabilityAlerts) {
+    try {
+      const vulnerabilities = await Vulnerabilities.create();
+      await vulnerabilities.fetchVulnerabilities(config, packageFiles);
+    } catch (err) {
+      logger.warn({ err }, 'Unable to read vulnerability information');
+    }
+  }
+}
+
 export async function lookup(
   config: RenovateConfig,
-  packageFiles: Record<string, PackageFile[]>
+  packageFiles: Record<string, PackageFileContent[]>
 ): Promise<ExtractResult> {
+  await fetchVulnerabilities(config, packageFiles);
   await fetchUpdates(config, packageFiles);
   await raiseDeprecationWarnings(config, packageFiles);
   const { branches, branchList } = await branchifyUpgrades(
