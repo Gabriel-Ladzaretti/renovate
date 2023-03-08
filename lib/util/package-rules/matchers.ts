@@ -8,7 +8,7 @@ import { DepTypesMatcher } from './dep-types';
 import { FilesMatcher } from './files';
 import { LanguagesMatcher } from './languages';
 import { ManagersMatcher } from './managers';
-import { MergeConfidenceMatcher } from './merge-confidence-levels';
+import { MergeConfidenceMatcher } from './merge-confidence';
 import { PackageNameMatcher } from './package-names';
 import { PackagePatternsMatcher } from './package-patterns';
 import { PackagePrefixesMatcher } from './package-prefixes';

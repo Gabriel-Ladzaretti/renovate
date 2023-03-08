@@ -15,7 +15,13 @@ import { id as gitVersioningId } from '../../../../modules/versioning/git';
 import { id as npmVersioningId } from '../../../../modules/versioning/npm';
 import { id as pep440VersioningId } from '../../../../modules/versioning/pep440';
 import { id as poetryVersioningId } from '../../../../modules/versioning/poetry';
+import type { HostRule } from '../../../../types';
+import * as memCache from '../../../../util/cache/memory';
 import * as githubGraphql from '../../../../util/github/graphql';
+import {
+  initMergeConfidence,
+  resetMergeConfidence,
+} from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import * as lookup from '.';
 
@@ -1877,31 +1883,77 @@ describe('workers/repository/process/lookup/index', () => {
       ]);
     });
 
-    it('gets a merge confidence level for a given update', async () => {
-      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
-      const datasource = NpmDatasource.id;
-      const depName = 'webpack';
-      const newVersion = '3.8.1';
-      const currentValue = '3.7.0';
-      config.currentValue = currentValue;
-      config.depName = depName;
-      config.datasource = datasource;
-      httpMock
-        .scope('https://registry.npmjs.org')
-        .get('/webpack')
-        .reply(200, webpackJson);
-      httpMock
-        .scope('https://badges.renovateapi.com')
-        .get(
-          `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentValue}`
-        )
-        .reply(200, { confidence: 'high' });
-      const res = (await lookup.lookupUpdates(config)).updates;
-      expect(res).toMatchObject([
-        {
-          mergeConfidenceLevel: `high`,
-        },
-      ]);
+    describe('handles merge confidence', () => {
+      const apiBaseUrl = 'https://www.baseurl.com/';
+      const envOrg: NodeJS.ProcessEnv = process.env;
+      const hostRule: HostRule = {
+        hostType: 'merge-confidence',
+        token: 'some-token',
+      };
+
+      beforeEach(() => {
+        process.env = {
+          ...envOrg,
+          RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: apiBaseUrl,
+        };
+        hostRules.add(hostRule);
+        initMergeConfidence();
+        memCache.reset();
+      });
+
+      afterEach(() => {
+        process.env = envOrg;
+        hostRules.clear();
+        resetMergeConfidence();
+      });
+
+      it('gets a merge confidence level for a given update', async () => {
+        const datasource = NpmDatasource.id;
+        const depName = 'webpack';
+        const newVersion = '3.8.1';
+        const currentValue = '3.7.0';
+        config.currentValue = currentValue;
+        config.depName = depName;
+        config.datasource = datasource;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/webpack')
+          .reply(200, webpackJson);
+        httpMock
+          .scope(apiBaseUrl)
+          .get(
+            `/api/mc/json/${datasource}/${depName}/${currentValue}/${newVersion}`
+          )
+          .reply(200, { confidence: 'high' });
+
+        const lookupUpdates = (await lookup.lookupUpdates(config)).updates;
+
+        expect(lookupUpdates).toMatchObject([
+          {
+            mergeConfidenceLevel: `high`,
+          },
+        ]);
+      });
+
+      it('doesnt set merge confidence value when disabled', async () => {
+        resetMergeConfidence();
+        const datasource = NpmDatasource.id;
+        config.currentValue = '3.7.0';
+        config.depName = 'webpack';
+        config.datasource = datasource;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/webpack')
+          .reply(200, webpackJson);
+
+        const lookupUpdates = (await lookup.lookupUpdates(config)).updates;
+
+        expect(lookupUpdates).not.toMatchObject([
+          {
+            mergeConfidenceLevel: expect.anything(),
+          },
+        ]);
+      });
     });
   });
 });

@@ -9,7 +9,7 @@ import * as packageCache from '../../util/cache/package';
 import { setEmojiConfig } from '../../util/emoji';
 import { validateGitVersion } from '../../util/git';
 import * as hostRules from '../../util/host-rules';
-import { checkConfidenceApi } from '../../util/merge-confidence';
+import { checkMergeConfidenceApiHealth } from '../../util/merge-confidence';
 import { setMaxLimit } from './limits';
 
 async function setDirectories(input: AllConfig): Promise<AllConfig> {
@@ -69,13 +69,13 @@ export async function globalInitialize(
 ): Promise<RenovateConfig> {
   let config = config_;
   await checkVersions();
+  await checkMergeConfidenceApiHealth();
   config = await initPlatform(config);
   config = await setDirectories(config);
   await packageCache.init(config);
   limitCommitsPerRun(config);
   setEmojiConfig(config);
   setGlobalHostRules(config);
-  await checkConfidenceApi();
   return config;
 }
 

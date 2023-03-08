@@ -1,16 +1,21 @@
 import * as httpMock from '../../../test/http-mock';
 import { EXTERNAL_HOST_ERROR } from '../../constants/error-messages';
 import { logger } from '../../logger';
+import type { HostRule } from '../../types';
 import * as memCache from '../cache/memory';
 import * as hostRules from '../host-rules';
 import {
-  checkConfidenceApi,
+  checkMergeConfidenceApiHealth,
   getMergeConfidenceLevel,
+  initMergeConfidence,
   isActiveConfidenceLevel,
+  resetMergeConfidence,
   satisfiesConfidenceLevel,
 } from '.';
 
 describe('util/merge-confidence/index', () => {
+  const apiBaseUrl = 'https://www.baseurl.com/';
+
   describe('isActiveConfidenceLevel()', () => {
     it('returns false if null', () => {
       expect(isActiveConfidenceLevel(null as never)).toBeFalse();
@@ -43,14 +48,27 @@ describe('util/merge-confidence/index', () => {
     });
   });
 
-  describe('API functions', () => {
+  describe('API calling functions', () => {
+    const envOrg: NodeJS.ProcessEnv = process.env;
+    const hostRule: HostRule = {
+      hostType: 'merge-confidence',
+      token: 'some-token',
+    };
+
     beforeEach(() => {
-      hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      process.env = {
+        ...envOrg,
+        RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: apiBaseUrl,
+      };
+      hostRules.add(hostRule);
+      initMergeConfidence();
       memCache.reset();
     });
 
     afterEach(() => {
+      process.env = envOrg;
       hostRules.clear();
+      resetMergeConfidence();
     });
 
     describe('getMergeConfidenceLevel()', () => {
@@ -91,7 +109,9 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('returns undefined if no token', async () => {
+        resetMergeConfidence();
         hostRules.clear();
+
         expect(
           await getMergeConfidenceLevel(
             'npm',
@@ -121,9 +141,9 @@ describe('util/merge-confidence/index', () => {
         const currentVersion = '24.3.0';
         const newVersion = '25.0.0';
         httpMock
-          .scope('https://badges.renovateapi.com')
+          .scope(apiBaseUrl)
           .get(
-            `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
           )
           .reply(200, { confidence: 'high' });
 
@@ -138,18 +158,17 @@ describe('util/merge-confidence/index', () => {
         ).toBe('high');
       });
 
-      it('returns neutral if invalid confidence level', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      it('returns neutral on invalid merge confidence response from api', async () => {
         const datasource = 'npm';
         const depName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.1.0';
         httpMock
-          .scope('https://badges.renovateapi.com')
+          .scope(apiBaseUrl)
           .get(
-            `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
           )
-          .reply(200, { nope: 'nope' });
+          .reply(200, { invalid: 'invalid' });
 
         expect(
           await getMergeConfidenceLevel(
@@ -162,18 +181,17 @@ describe('util/merge-confidence/index', () => {
         ).toBe('neutral');
       });
 
-      it('returns neutral if non 403/5xx exception from API', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      it('returns neutral on non 403/5xx error from API', async () => {
         const datasource = 'npm';
         const depName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.4.0';
         httpMock
-          .scope('https://badges.renovateapi.com')
+          .scope(apiBaseUrl)
           .get(
-            `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
           )
-          .reply(404);
+          .reply(400);
 
         expect(
           await getMergeConfidenceLevel(
@@ -186,20 +204,19 @@ describe('util/merge-confidence/index', () => {
         ).toBe('neutral');
         expect(logger.debug).toHaveBeenCalledWith(
           expect.anything(),
-          'Error fetching merge confidence'
+          'error fetching merge confidence data'
         );
       });
 
-      it('throws on 403-Forbidden from API', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      it('throws on 403-Forbidden response from API', async () => {
         const datasource = 'npm';
         const depName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.4.0';
         httpMock
-          .scope('https://badges.renovateapi.com')
+          .scope(apiBaseUrl)
           .get(
-            `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
           )
           .reply(403);
 
@@ -214,20 +231,19 @@ describe('util/merge-confidence/index', () => {
         ).rejects.toThrow(EXTERNAL_HOST_ERROR);
         expect(logger.error).toHaveBeenCalledWith(
           expect.anything(),
-          'Merge Confidence API token rejected - aborting run'
+          'merge confidence api token rejected - aborting run'
         );
       });
 
-      it('throws on 5xx host errors from API', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      it('throws on server error responses', async () => {
         const datasource = 'npm';
         const depName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.4.0';
         httpMock
-          .scope('https://badges.renovateapi.com')
+          .scope(apiBaseUrl)
           .get(
-            `/packages/${datasource}/${depName}/${newVersion}/confidence.api/${currentVersion}`
+            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
           )
           .reply(503);
 
@@ -242,7 +258,7 @@ describe('util/merge-confidence/index', () => {
         ).rejects.toThrow(EXTERNAL_HOST_ERROR);
         expect(logger.error).toHaveBeenCalledWith(
           expect.anything(),
-          'Merge Confidence API failure: 5xx - aborting run'
+          'merge confidence api failure: 5xx - aborting run'
         );
       });
 
@@ -259,56 +275,83 @@ describe('util/merge-confidence/index', () => {
       });
     });
 
-    describe('checkConfidenceAPi', () => {
-      it('resolves if no token', async () => {
-        hostRules.clear();
-        await expect(checkConfidenceApi()).toResolve();
+    describe('checkMergeConfidenceApiHealth()', () => {
+      it('resolves if no base url is set', async () => {
+        process.env = {};
+        resetMergeConfidence();
+
+        await expect(checkMergeConfidenceApiHealth()).toResolve();
+        expect(logger.trace).toHaveBeenCalledWith(
+          'merge confidence api usage is disabled'
+        );
       });
 
-      it('resolves if when token is valid', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
+      it('warns and then resolves if base url is invalid', async () => {
+        process.env = {
+          RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: 'invalid-url.com',
+        };
+        resetMergeConfidence();
+
+        await expect(checkMergeConfidenceApiHealth()).toResolve();
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.anything(),
+
+          'invalid merge confidence base url'
+        );
+        expect(logger.trace).toHaveBeenCalledWith(
+          'merge confidence api usage is disabled'
+        );
+      });
+
+      it('resolves if no token', async () => {
+        resetMergeConfidence();
+        hostRules.clear();
+
+        await expect(checkMergeConfidenceApiHealth()).toResolve();
+        expect(logger.trace).toHaveBeenCalledWith(
+          'merge confidence api usage is disabled'
+        );
+      });
+
+      it('resolves when token is valid', async () => {
         httpMock
-          .scope('https://badges.renovateapi.com')
-          .get(
-            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
-          )
+          .scope(apiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(200);
 
-        await expect(checkConfidenceApi()).toResolve();
+        await expect(checkMergeConfidenceApiHealth()).toResolve();
         expect(logger.debug).toHaveBeenCalledWith(
-          'Merge Confidence API - successfully authenticated'
+          'merge confidence api - successfully authenticated'
         );
       });
 
       it('throws on 403-Forbidden from mc API', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
         httpMock
-          .scope('https://badges.renovateapi.com')
-          .get(
-            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
-          )
+          .scope(apiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(403);
 
-        await expect(checkConfidenceApi()).rejects.toThrow(EXTERNAL_HOST_ERROR);
+        await expect(checkMergeConfidenceApiHealth()).rejects.toThrow(
+          EXTERNAL_HOST_ERROR
+        );
         expect(logger.error).toHaveBeenCalledWith(
           expect.anything(),
-          'Merge Confidence API token rejected - aborting run'
+          'merge confidence api token rejected - aborting run'
         );
       });
 
       it('throws on 5xx host errors from mc API', async () => {
-        hostRules.add({ hostType: 'merge-confidence', token: '123test' });
         httpMock
-          .scope('https://badges.renovateapi.com')
-          .get(
-            `/packages/datasource/depName/newVersion/confidence.api/currentVersion`
-          )
+          .scope(apiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(503);
 
-        await expect(checkConfidenceApi()).rejects.toThrow(EXTERNAL_HOST_ERROR);
+        await expect(checkMergeConfidenceApiHealth()).rejects.toThrow(
+          EXTERNAL_HOST_ERROR
+        );
         expect(logger.error).toHaveBeenCalledWith(
           expect.anything(),
-          'Merge Confidence API failure: 5xx - aborting run'
+          'merge confidence api failure: 5xx - aborting run'
         );
       });
     });
