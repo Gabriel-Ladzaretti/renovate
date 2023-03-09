@@ -662,7 +662,7 @@ describe('util/package-rules/index', () => {
     expect(res.x).toBeUndefined();
   });
 
-  it('handles matchConfidence when missing mergeConfidenceLevel', () => {
+  it('doesnt match matchConfidence when there is no mergeConfidenceLevel', () => {
     const config: TestConfig = {
       packageRules: [
         {
@@ -674,6 +674,7 @@ describe('util/package-rules/index', () => {
     const dep = {
       depType: 'dependencies',
       depName: 'a',
+      mergeConfidenceLevel: undefined,
     };
     const res = applyPackageRules({ ...config, ...dep });
     expect(res.x).toBeUndefined();

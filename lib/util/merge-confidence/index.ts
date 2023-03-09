@@ -48,22 +48,20 @@ export function satisfiesConfidenceLevel(
   return confidenceLevels[confidence] >= confidenceLevels[minimumConfidence];
 }
 
-const updateTypeConfidenceMapping: Record<
-  UpdateType,
-  MergeConfidence | undefined
-> = {
-  pin: 'high',
-  digest: 'neutral',
-  pinDigest: 'high',
-  bump: 'neutral',
-  lockFileMaintenance: 'neutral',
-  lockfileUpdate: 'neutral',
-  rollback: 'neutral',
-  replacement: 'neutral',
-  major: undefined,
-  minor: undefined,
-  patch: undefined,
-};
+const updateTypeConfidenceMapping: Record<UpdateType, MergeConfidence | null> =
+  {
+    pin: 'high',
+    digest: 'neutral',
+    pinDigest: 'high',
+    bump: 'neutral',
+    lockFileMaintenance: 'neutral',
+    lockfileUpdate: 'neutral',
+    rollback: 'neutral',
+    replacement: 'neutral',
+    major: null,
+    minor: null,
+    patch: null,
+  };
 
 export async function getMergeConfidenceLevel(
   datasource: string,
@@ -90,6 +88,59 @@ export async function getMergeConfidenceLevel(
   }
 
   return await queryApi(datasource, depName, currentVersion, newVersion);
+}
+
+/**
+ * Queries the Merge Confidence API with the given package release information.
+ *
+ * @param datasource
+ * @param depName
+ * @param currentVersion
+ * @param newVersion
+ *
+ * @returns The merge confidence level for the given package release.
+ * @throws {ExternalHostError} If the authentication request to the API returns a 403 Forbidden status code or a 5xx server-side error status code.
+ *
+ * @remarks
+ *
+ * Results are caches for 60 minutes to reduce the number of API calls.
+ */
+async function queryApi(
+  datasource: string,
+  depName: string,
+  currentVersion: string,
+  newVersion: string
+): Promise<MergeConfidence> {
+  // istanbul ignore if: defensive, already been validated before calling this function
+  if (is.nullOrUndefined(apiBaseUrl) || is.nullOrUndefined(token)) {
+    return 'neutral';
+  }
+
+  const url = `${apiBaseUrl}api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`;
+  const cacheKey = `${token}:${url}`;
+  const cachedResult = await packageCache.get(hostType, cacheKey);
+
+  // istanbul ignore if
+  if (cachedResult) {
+    logger.debug(
+      { datasource, depName, currentVersion, newVersion, cachedResult },
+      'using merge confidence cached result'
+    );
+    return cachedResult;
+  }
+
+  let confidence: MergeConfidence = 'neutral';
+  try {
+    const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
+    if (isMergeConfidence(res.confidence)) {
+      confidence = res.confidence;
+    }
+  } catch (err) {
+    apiErrorHandler(err);
+  }
+
+  await packageCache.set(hostType, cacheKey, confidence, 60);
+  return confidence;
 }
 
 /**
@@ -153,59 +204,6 @@ function getApiToken(hostType: string): string | undefined {
   return hostRules.find({
     hostType,
   })?.token;
-}
-
-/**
- * Queries the Merge Confidence API with the given package release information.
- *
- * @param datasource
- * @param depName
- * @param currentVersion
- * @param newVersion
- *
- * @returns The merge confidence level for the given package release.
- * @throws {ExternalHostError} If the authentication request to the API returns a 403 Forbidden status code or a 5xx server-side error status code.
- *
- * @remarks
- *
- * Results are caches for 60 minutes to reduce the number of API calls.
- */
-async function queryApi(
-  datasource: string,
-  depName: string,
-  currentVersion: string,
-  newVersion: string
-): Promise<MergeConfidence> {
-  // istanbul ignore if: defensive, already been validated before calling this function
-  if (is.nullOrUndefined(apiBaseUrl) || is.nullOrUndefined(token)) {
-    return 'neutral';
-  }
-
-  const url = `${apiBaseUrl}api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`;
-  const cacheKey = `${token}:${url}`;
-  const cachedResult = await packageCache.get(hostType, cacheKey);
-
-  // istanbul ignore if
-  if (cachedResult) {
-    logger.debug(
-      { datasource, depName, currentVersion, newVersion, cachedResult },
-      'using merge confidence cached result'
-    );
-    return cachedResult;
-  }
-
-  let confidence: MergeConfidence = 'neutral';
-  try {
-    const res = (await http.getJson<{ confidence: MergeConfidence }>(url)).body;
-    if (isMergeConfidence(res.confidence)) {
-      confidence = res.confidence;
-    }
-  } catch (err) {
-    apiErrorHandler(err);
-  }
-
-  await packageCache.set(hostType, cacheKey, confidence, 60);
-  return confidence;
 }
 
 /**

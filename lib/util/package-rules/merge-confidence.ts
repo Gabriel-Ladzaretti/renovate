@@ -7,11 +7,12 @@ export class MergeConfidenceMatcher extends Matcher {
     { mergeConfidenceLevel }: PackageRuleInputConfig,
     { matchConfidence }: PackageRule
   ): boolean | null {
-    if (is.undefined(matchConfidence)) {
+    if (is.nullOrUndefined(matchConfidence)) {
       return null;
     }
     return (
-      is.truthy(mergeConfidenceLevel) &&
+      is.array(matchConfidence) &&
+      is.nonEmptyString(mergeConfidenceLevel) &&
       matchConfidence.includes(mergeConfidenceLevel)
     );
   }
