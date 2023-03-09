@@ -1,7 +1,0 @@
-*
-!package.json
-!yarn.lock
-!tsconfig*.json
-!/lib
-!/tools
-**/*.spec.ts
