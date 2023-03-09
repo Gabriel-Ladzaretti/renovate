@@ -63,6 +63,18 @@ const updateTypeConfidenceMapping: Record<UpdateType, MergeConfidence | null> =
     patch: null,
   };
 
+/**
+ * Retrieves the merge confidence of a package update if the merge confidence API is enabled. Otherwise, undefined is returned.
+ *
+ * @param datasource
+ * @param depName
+ * @param currentVersion
+ * @param newVersion
+ * @param updateType
+ *
+ * @returns The merge confidence level for the given package release.
+ * @throws {ExternalHostError} If a request has been made and an error occurs during the request, such as a timeout, connection reset, authentication failure, or internal server error.
+ */
 export async function getMergeConfidenceLevel(
   datasource: string,
   depName: string,
@@ -99,10 +111,9 @@ export async function getMergeConfidenceLevel(
  * @param newVersion
  *
  * @returns The merge confidence level for the given package release.
- * @throws {ExternalHostError} If the authentication request to the API returns a 403 Forbidden status code or a 5xx server-side error status code.
+ * @throws {ExternalHostError} if a timeout or connection reset error, authentication failure, or internal server error occurs during the request.
  *
  * @remarks
- *
  * Results are caches for 60 minutes to reduce the number of API calls.
  */
 async function queryApi(
@@ -146,10 +157,9 @@ async function queryApi(
 /**
  * Checks the health of the Merge Confidence API by attempting to authenticate with it.
  *
- * @returns A Promise that resolves when the API health check is complete.
+ * @returns Resolves when the API health check is complete successfully.
  *
- * @throws {ExternalHostError} If the authentication request to the API returns a 403 Forbidden status code or a 5xx
- * server-side error status code.
+ * @throws {ExternalHostError} if a timeout, connection reset error, authentication failure, or internal server error occurs during the request.
  *
  * @remarks
  * This function first checks that the API base URL and an authentication bearer token are defined before attempting to
@@ -210,10 +220,7 @@ function getApiToken(hostType: string): string | undefined {
  * Handles errors returned by the Merge Confidence API.
  *
  * @param err - The error object returned by the API.
- * @throws {ExternalHostError} If the error is related to an issue with the external API host.
- *
- * @remarks
- * This function throws an ExternalHostError if a timeout or connection reset error, authentication failure, or internal server error occurs during the request.
+ * @throws {ExternalHostError} if a timeout or connection reset error, authentication failure, or internal server error occurs during the request.
  */
 function apiErrorHandler(err: any): void {
   if (err.code === 'ETIMEDOUT' || err.code === 'ECONNRESET') {
