@@ -124,25 +124,29 @@ export async function checkMergeConfidenceApiHealth(): Promise<void> {
   return;
 }
 
-function getApiBaseUrl(): string | undefined {
+function getApiBaseUrl(): string {
+  const defaultBaseUrl = 'https://developer.mend.io/';
   const baseFromEnv = process.env.RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL;
 
   if (is.nullOrUndefined(baseFromEnv)) {
-    return;
+    logger.trace('using default merge confidence api base url');
+    return defaultBaseUrl;
   }
 
-  let baseUrl: string | undefined;
   try {
-    baseUrl = new URL(baseFromEnv).toString();
+    const parsedBaseUrl = new URL(baseFromEnv).toString();
     logger.trace(
-      { baseUrl },
-      'found merge confidence api base url in environment variables'
+      { baseUrl: parsedBaseUrl },
+      'using merge confidence api base found in environment variables'
     );
+    return parsedBaseUrl;
   } catch (err) {
-    logger.warn({ err }, 'invalid merge confidence base url');
+    logger.warn(
+      { err, baseFromEnv },
+      'invalid merge confidence api base url found in environment variables - using default value instead'
+    );
+    return defaultBaseUrl;
   }
-
-  return baseUrl;
 }
 
 function getApiToken(hostType: string): string | undefined {

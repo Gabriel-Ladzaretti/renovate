@@ -15,6 +15,7 @@ import {
 
 describe('util/merge-confidence/index', () => {
   const apiBaseUrl = 'https://www.baseurl.com/';
+  const defaultApiBaseUrl = 'https://developer.mend.io/';
 
   describe('isActiveConfidenceLevel()', () => {
     it('returns false if null', () => {
@@ -56,6 +57,7 @@ describe('util/merge-confidence/index', () => {
     };
 
     beforeEach(() => {
+      jest.resetAllMocks();
       process.env = {
         ...envOrg,
         RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: apiBaseUrl,
@@ -276,30 +278,40 @@ describe('util/merge-confidence/index', () => {
     });
 
     describe('checkMergeConfidenceApiHealth()', () => {
-      it('resolves if no base url is set', async () => {
-        process.env = {};
+      it('using default base url if none is set', async () => {
         resetMergeConfidence();
+        process.env = {};
+        httpMock
+          .scope(defaultApiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .reply(200);
 
         await expect(checkMergeConfidenceApiHealth()).toResolve();
         expect(logger.trace).toHaveBeenCalledWith(
-          'merge confidence api usage is disabled'
+          'using default merge confidence api base url'
+        );
+        expect(logger.debug).toHaveBeenCalledWith(
+          'merge confidence api - successfully authenticated'
         );
       });
 
       it('warns and then resolves if base url is invalid', async () => {
+        resetMergeConfidence();
         process.env = {
           RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: 'invalid-url.com',
         };
-        resetMergeConfidence();
+        httpMock
+          .scope(defaultApiBaseUrl)
+          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .reply(200);
 
         await expect(checkMergeConfidenceApiHealth()).toResolve();
         expect(logger.warn).toHaveBeenCalledWith(
           expect.anything(),
-
-          'invalid merge confidence base url'
+          'invalid merge confidence api base url found in environment variables - using default value instead'
         );
-        expect(logger.trace).toHaveBeenCalledWith(
-          'merge confidence api usage is disabled'
+        expect(logger.debug).toHaveBeenCalledWith(
+          'merge confidence api - successfully authenticated'
         );
       });
 
