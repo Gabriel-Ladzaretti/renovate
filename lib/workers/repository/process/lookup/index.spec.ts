@@ -22,6 +22,7 @@ import {
   initMergeConfidence,
   resetMergeConfidence,
 } from '../../../../util/merge-confidence';
+import * as McApi from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import * as lookup from '.';
 
@@ -1884,6 +1885,10 @@ describe('workers/repository/process/lookup/index', () => {
     });
 
     describe('handles merge confidence', () => {
+      const getMergeConfidenceSpy = jest.spyOn(
+        McApi,
+        'getMergeConfidenceLevel'
+      );
       const apiBaseUrl = 'https://www.baseurl.com/';
       const envOrg: NodeJS.ProcessEnv = process.env;
       const hostRule: HostRule = {
@@ -1907,11 +1912,12 @@ describe('workers/repository/process/lookup/index', () => {
         resetMergeConfidence();
       });
 
-      it('gets a merge confidence level for a given update', async () => {
+      it('gets a merge confidence level for a given update when corresponding packageRule is in use', async () => {
         const datasource = NpmDatasource.id;
         const depName = 'webpack';
         const newVersion = '3.8.1';
         const currentValue = '3.7.0';
+        config.packageRules = [{ matchConfidence: ['high'] }];
         config.currentValue = currentValue;
         config.depName = depName;
         config.datasource = datasource;
@@ -1935,12 +1941,33 @@ describe('workers/repository/process/lookup/index', () => {
         ]);
       });
 
-      it('doesnt set merge confidence value when disabled', async () => {
-        resetMergeConfidence();
+      it('doesnt get a merge confidence level when corresponding packageRule is not in use', async () => {
+        config.currentValue = '3.7.0';
+        config.depName = 'webpack';
+        config.datasource = NpmDatasource.id;
+        httpMock
+          .scope('https://registry.npmjs.org')
+          .get('/webpack')
+          .reply(200, webpackJson);
+
+        const lookupUpdates = (await lookup.lookupUpdates(config)).updates;
+
+        expect(getMergeConfidenceSpy).toHaveBeenCalledTimes(0);
+        expect(lookupUpdates).not.toMatchObject([
+          {
+            mergeConfidenceLevel: expect.anything(),
+          },
+        ]);
+      });
+
+      it('doesnt set merge confidence value when api is not in use', async () => {
         const datasource = NpmDatasource.id;
+        config.packageRules = [{ matchConfidence: ['high'] }];
         config.currentValue = '3.7.0';
         config.depName = 'webpack';
         config.datasource = datasource;
+        hostRules.clear(); // reset merge confidence
+        initMergeConfidence();
         httpMock
           .scope('https://registry.npmjs.org')
           .get('/webpack')

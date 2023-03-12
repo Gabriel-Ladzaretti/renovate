@@ -1,12 +1,10 @@
+import is from '@sindresorhus/is';
 import { logger } from '../../../../logger';
 import type { Release } from '../../../../modules/datasource';
 import type { LookupUpdate } from '../../../../modules/manager/types';
 import type { VersioningApi } from '../../../../modules/versioning';
 import type { RangeStrategy } from '../../../../types';
-import {
-  MergeConfidence,
-  getMergeConfidenceLevel,
-} from '../../../../util/merge-confidence';
+import { getMergeConfidenceLevel } from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import { getUpdateType } from './update-type';
 
@@ -81,17 +79,15 @@ export async function generateUpdate(
   update.updateType =
     update.updateType ??
     getUpdateType(config, versioning, currentVersion, newVersion);
-  const { datasource, depName } = config;
-  const mergeConfidenceLevel: MergeConfidence | undefined =
-    await getMergeConfidenceLevel(
+  const { datasource, depName, packageRules } = config;
+  if (packageRules?.some((pr) => is.nonEmptyArray(pr.matchConfidence))) {
+    update.mergeConfidenceLevel = await getMergeConfidenceLevel(
       datasource,
       depName,
       currentVersion,
       newVersion,
       update.updateType
     );
-  if (mergeConfidenceLevel) {
-    update.mergeConfidenceLevel = mergeConfidenceLevel;
   }
   if (!versioning.isVersion(update.newValue)) {
     update.isRange = true;
