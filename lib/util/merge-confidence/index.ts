@@ -24,8 +24,8 @@ export const confidenceLevels: Record<MergeConfidence, number> = {
 };
 
 export function initMergeConfidence(): void {
-  token = getApiToken(hostType);
   apiBaseUrl = getApiBaseUrl();
+  token = getApiToken();
 }
 
 export function resetMergeConfidence(): void {
@@ -166,7 +166,7 @@ async function queryApi(
  * authenticate with the API. If either the base URL or token is no defined, it will immediately return
  * without making a request.
  */
-export async function checkMergeConfidenceApiHealth(): Promise<void> {
+export async function checkMergeConfidenceApiAvailability(): Promise<void> {
   initMergeConfidence();
 
   if (is.nullOrUndefined(apiBaseUrl) || is.nullOrUndefined(token)) {
@@ -174,9 +174,9 @@ export async function checkMergeConfidenceApiHealth(): Promise<void> {
     return;
   }
 
-  const url = `${apiBaseUrl}api/mc/json/datasource/depName/currentVersion/newVersion`;
+  const url = `${apiBaseUrl}api/mc/availability`;
   try {
-    await http.getJson(url);
+    await http.get(url);
   } catch (err) {
     apiErrorHandler(err);
   }
@@ -210,7 +210,7 @@ function getApiBaseUrl(): string {
   }
 }
 
-function getApiToken(hostType: string): string | undefined {
+function getApiToken(): string | undefined {
   return hostRules.find({
     hostType,
   })?.token;
