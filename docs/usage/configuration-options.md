@@ -244,9 +244,28 @@ Renovate also allows users to explicitly configure `baseBranches`, e.g. for use 
 
 - You wish Renovate to process only a non-default branch, e.g. `dev`: `"baseBranches": ["dev"]`
 - You have multiple release streams you need Renovate to keep up to date, e.g. in branches `main` and `next`: `"baseBranches": ["main", "next"]`
+- You want to update your main branch and consistently named release branches, e.g. `main` and `release/<version>`: `"baseBranches": ["main", "/^release\\/.*/"]`
 
 It's possible to add this setting into the `renovate.json` file as part of the "Configure Renovate" onboarding PR.
 If so then Renovate will reflect this setting in its description and use package file contents from the custom base branch(es) instead of default.
+
+`baseBranches` supports Regular Expressions that must begin and end with `/`, e.g.:
+
+```json
+{
+  "baseBranches": ["main", "/^release\\/.*/"]
+}
+```
+
+You can negate the regex by prefixing it with `!`.
+Only use a single negation and do not mix it with other branch names, since all branches are combined with `or`.
+With a negation, all branches except those matching the regex will be added to the result:
+
+```json
+{
+  "baseBranches": ["!/^pre-release\\/.*/"]
+}
+```
 
 <!-- prettier-ignore -->
 !!! note
@@ -524,6 +543,19 @@ If you need to _override_ constraints that Renovate detects from the repository,
 <!-- prettier-ignore -->
 !!! note
     Make sure not to mix this up with the term `compatibility`, which Renovate uses in the context of version releases, e.g. if a Docker image is `node:12.16.0-alpine` then the `-alpine` suffix represents `compatibility`.
+
+## constraintsFiltering
+
+This option controls whether Renovate filters new releases based on configured or detected `constraints`.
+Renovate supports two options:
+
+- `none`: No release filtering (all releases allowed)
+- `strict`: If the release's constraints match the package file constraints, then it's included
+
+We are working on adding more advanced filtering options.
+
+Note: There must be a `constraints` object in your Renovate config for this to work.
+This feature is limited to `pypi` datasource only.
 
 ## defaultRegistryUrls
 
@@ -874,6 +906,32 @@ If you've set a `followTag` then Renovate skips its normal major/minor/patch upg
 Renovate follows tags _strictly_, this can cause problems when a tagged stream is no longer maintained.
 For example: you're following the `next` tag, but later the stream you actually want is called `stable` instead.
 If `next` is no longer getting updates, you must switch your `followTag` to `stable` to get updates again.
+
+## forkModeDisallowMaintainerEdits
+
+Use `forkModeDisallowMaintainerEdits` to disallow maintainers from editing Renovate's pull requests when in fork mode.
+
+If GitHub pull requests are created from a [fork repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo), the PR author can decide to allow upstream repository to modify the PR directly.
+
+Allowing maintainers to edit pull requests directly is helpful when Renovate pull requests require additional changes.
+The reviewer can simply push to the pull request without having to create a new PR. [More details here](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/allowing-changes-to-a-pull-request-branch-created-from-a-fork).
+
+You may decide to disallow edits to Renovate pull requests in order to workaround issues in Renovate where modified fork branches are not deleted properly: [See this issue](https://github.com/renovatebot/renovate/issues/16657).
+If this option is enabled, reviewers will need to create a new PR if additional changes are needed.
+
+<!-- prettier-ignore -->
+!!! note
+    This option is only relevant if you set `forkToken`.
+
+## forkProcessing
+
+By default, Renovate will skip over any repositories that are forked if Renovate is using `autodiscover` mode.
+This includes if the forked repository has a Renovate config file, because Renovate can't tell if that file was added by the original repository or not.
+If you wish to enable processing of a forked repository by Renovate when autodiscovering, you need to add `"forkProcessing": "enabled"` to your repository config or run the CLI command with `--fork-processing=enabled`.
+
+If you are running in non-autodiscover mode (e.g. supplying a list of repositories to Renovate) but wish to skip forked repositories, you need to configure `"forkProcessing": "disabled"` in your global config.
+
+If you are using the hosted Mend Renovate then this option will be configured to `"enabled"` automatically if you "Selected" repositories individually but `"disabled"` if you installed for "All" repositories. If you have installed Renovate into "All" repositories but have a fork you want to use, then add `"forkProcessing": "enabled"` to the repository's `renovate.json` file.
 
 ## gitAuthor
 
@@ -1369,20 +1427,22 @@ If you need to force permanent unstable updates for a package, you can add a pac
 
 Also check out the `followTag` configuration option above if you wish Renovate to keep you pinned to a particular release tag.
 
-## includeForks
-
-By default, Renovate will skip over any repositories that are forked.
-This includes if the forked repository has a Renovate config file, because Renovate can't tell if that file was added by the original repository or not.
-If you wish to enable processing of a forked repository by Renovate, you need to add `"includeForks": true` to your repository config or run the CLI command with `--include-forks=true`.
-
-If you are using the hosted Mend Renovate then this option will be configured to `true` automatically if you "Selected" repositories individually but remain as `false` if you installed for "All" repositories.
-
 ## includePaths
 
 If you wish for Renovate to process only select paths in the repository, use `includePaths`.
 
 Alternatively, if you need to just _exclude_ certain paths in the repository then consider `ignorePaths` instead.
 If you are more interested in including only certain package managers (e.g. `npm`), then consider `enabledManagers` instead.
+
+## internalChecksAsSuccess
+
+By default, internal Renovate checks such as `renovate/stability-days` are not counted towards a branch being "green" or not.
+This is primarily to prevent automerge when the only check is a passing Renovate check.
+
+Internal checks will always be counted/considered if they are in pending or failed states.
+If there are multiple passing checks for a branch, including non-Renovate ones, then this setting won't make any difference.
+
+Change this setting to `true` if you want to use internal Renovate checks towards a passing branch result.
 
 ## internalChecksFilter
 
@@ -1761,7 +1821,7 @@ This field also supports Regular Expressions if they begin and end with `/`. e.g
 {
   "packageRules": [
     {
-      "matchBaseBranches": ["/^release\\/.*/"],
+      "matchBaseBranches": ["/^release/.*/"],
       "excludePackagePatterns": ["^eslint"],
       "enabled": false
     }
@@ -2767,7 +2827,7 @@ regex definition:
     {
       "fileMatch": ["values.yaml$"],
       "matchStrings": [
-        "image:\\s+(?<depName>my\\.old\\.registry\\/aRepository\\/andImage):(?<currentValue>[^\\s]+)"
+        "image:\\s+(?<depName>my\\.old\\.registry/aRepository/andImage):(?<currentValue>[^\\s]+)"
       ],
       "depNameTemplate": "my.new.registry/aRepository/andImage",
       "autoReplaceStringTemplate": "image: {{{depName}}}:{{{newValue}}}",
