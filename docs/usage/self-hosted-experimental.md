@@ -71,10 +71,6 @@ If set, Renovate will terminate the whole process group of a terminated child pr
 
 If set, Renovate will try to match against `packageName` after trying `depName` When using `matchPackageNames` & `matchPackagePatterns` matchers.
 
-## `RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL`
-
-If set, Renovate will query this api for Merge Confidence data.
-
 ## `RENOVATE_X_AUTODISCOVER_REPO_SORT`
 
 <!-- prettier-ignore -->
