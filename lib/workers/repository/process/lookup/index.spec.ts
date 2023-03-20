@@ -18,10 +18,7 @@ import { id as poetryVersioningId } from '../../../../modules/versioning/poetry'
 import type { HostRule } from '../../../../types';
 import * as memCache from '../../../../util/cache/memory';
 import * as githubGraphql from '../../../../util/github/graphql';
-import {
-  initMergeConfidence,
-  resetMergeConfidence,
-} from '../../../../util/merge-confidence';
+import { initConfig, resetConfig } from '../../../../util/merge-confidence';
 import * as McApi from '../../../../util/merge-confidence';
 import type { LookupUpdateConfig } from './types';
 import * as lookup from '.';
@@ -2007,14 +2004,14 @@ describe('workers/repository/process/lookup/index', () => {
           RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: apiBaseUrl,
         };
         hostRules.add(hostRule);
-        initMergeConfidence();
+        initConfig();
         memCache.reset();
       });
 
       afterEach(() => {
         process.env = envOrg;
         hostRules.clear();
-        resetMergeConfidence();
+        resetConfig();
       });
 
       it('gets a merge confidence level for a given update when corresponding packageRule is in use', async () => {
@@ -2072,7 +2069,7 @@ describe('workers/repository/process/lookup/index', () => {
         config.depName = 'webpack';
         config.datasource = datasource;
         hostRules.clear(); // reset merge confidence
-        initMergeConfidence();
+        initConfig();
         httpMock
           .scope('https://registry.npmjs.org')
           .get('/webpack')

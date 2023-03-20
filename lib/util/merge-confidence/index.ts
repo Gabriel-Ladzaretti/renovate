@@ -23,12 +23,12 @@ export const confidenceLevels: Record<MergeConfidence, number> = {
   'very high': 2,
 };
 
-export function initMergeConfidence(): void {
+export function initConfig(): void {
   apiBaseUrl = getApiBaseUrl();
   token = getApiToken();
 }
 
-export function resetMergeConfidence(): void {
+export function resetConfig(): void {
   token = undefined;
   apiBaseUrl = undefined;
 }
@@ -166,8 +166,8 @@ async function queryApi(
  * authenticate with the API. If either the base URL or token is no defined, it will immediately return
  * without making a request.
  */
-export async function checkMergeConfidenceApiAvailability(): Promise<void> {
-  initMergeConfidence();
+export async function initMergeConfidence(): Promise<void> {
+  initConfig();
 
   if (is.nullOrUndefined(apiBaseUrl) || is.nullOrUndefined(token)) {
     logger.trace('merge confidence api usage is disabled');

@@ -5,11 +5,11 @@ import type { HostRule } from '../../types';
 import * as memCache from '../cache/memory';
 import * as hostRules from '../host-rules';
 import {
-  checkMergeConfidenceApiAvailability,
   getMergeConfidenceLevel,
+  initConfig,
   initMergeConfidence,
   isActiveConfidenceLevel,
-  resetMergeConfidence,
+  resetConfig,
   satisfiesConfidenceLevel,
 } from '.';
 
@@ -63,14 +63,14 @@ describe('util/merge-confidence/index', () => {
         RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: apiBaseUrl,
       };
       hostRules.add(hostRule);
-      initMergeConfidence();
+      initConfig();
       memCache.reset();
     });
 
     afterEach(() => {
       process.env = envOrg;
       hostRules.clear();
-      resetMergeConfidence();
+      resetConfig();
     });
 
     describe('getMergeConfidenceLevel()', () => {
@@ -111,7 +111,7 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('returns undefined if no token', async () => {
-        resetMergeConfidence();
+        resetConfig();
         hostRules.clear();
 
         expect(
@@ -279,14 +279,14 @@ describe('util/merge-confidence/index', () => {
 
     describe('checkMergeConfidenceApiHealth()', () => {
       it('using default base url if none is set', async () => {
-        resetMergeConfidence();
+        resetConfig();
         process.env = {};
         httpMock
           .scope(defaultApiBaseUrl)
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(200);
 
-        await expect(checkMergeConfidenceApiAvailability()).toResolve();
+        await expect(initMergeConfidence()).toResolve();
         expect(logger.trace).toHaveBeenCalledWith(
           'using default merge confidence api base url'
         );
@@ -296,7 +296,7 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('warns and then resolves if base url is invalid', async () => {
-        resetMergeConfidence();
+        resetConfig();
         process.env = {
           RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL: 'invalid-url.com',
         };
@@ -305,7 +305,7 @@ describe('util/merge-confidence/index', () => {
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(200);
 
-        await expect(checkMergeConfidenceApiAvailability()).toResolve();
+        await expect(initMergeConfidence()).toResolve();
         expect(logger.warn).toHaveBeenCalledWith(
           expect.anything(),
           'invalid merge confidence api base url found in environment variables - using default value instead'
@@ -316,10 +316,10 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('resolves if no token', async () => {
-        resetMergeConfidence();
+        resetConfig();
         hostRules.clear();
 
-        await expect(checkMergeConfidenceApiAvailability()).toResolve();
+        await expect(initMergeConfidence()).toResolve();
         expect(logger.trace).toHaveBeenCalledWith(
           'merge confidence api usage is disabled'
         );
@@ -331,7 +331,7 @@ describe('util/merge-confidence/index', () => {
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(200);
 
-        await expect(checkMergeConfidenceApiAvailability()).toResolve();
+        await expect(initMergeConfidence()).toResolve();
         expect(logger.debug).toHaveBeenCalledWith(
           'merge confidence api - successfully authenticated'
         );
@@ -343,7 +343,7 @@ describe('util/merge-confidence/index', () => {
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(403);
 
-        await expect(checkMergeConfidenceApiAvailability()).rejects.toThrow(
+        await expect(initMergeConfidence()).rejects.toThrow(
           EXTERNAL_HOST_ERROR
         );
         expect(logger.error).toHaveBeenCalledWith(
@@ -358,7 +358,7 @@ describe('util/merge-confidence/index', () => {
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .reply(503);
 
-        await expect(checkMergeConfidenceApiAvailability()).rejects.toThrow(
+        await expect(initMergeConfidence()).rejects.toThrow(
           EXTERNAL_HOST_ERROR
         );
         expect(logger.error).toHaveBeenCalledWith(
@@ -373,7 +373,7 @@ describe('util/merge-confidence/index', () => {
           .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
           .replyWithError({ code: 'ECONNRESET' });
 
-        await expect(checkMergeConfidenceApiAvailability()).rejects.toThrow(
+        await expect(initMergeConfidence()).rejects.toThrow(
           EXTERNAL_HOST_ERROR
         );
         expect(logger.error).toHaveBeenCalledWith(
