@@ -186,7 +186,7 @@ export async function initMergeConfidence(): Promise<void> {
 }
 
 function getApiBaseUrl(): string {
-  const defaultBaseUrl = 'https://developer.mend.io/';
+  const defaultBaseUrl = 'https://badges.renovateapi.com/';
   const baseFromEnv = process.env.RENOVATE_X_MERGE_CONFIDENCE_API_BASE_URL;
 
   if (is.nullOrUndefined(baseFromEnv)) {
