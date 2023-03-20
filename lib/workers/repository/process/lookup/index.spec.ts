@@ -2016,12 +2016,12 @@ describe('workers/repository/process/lookup/index', () => {
 
       it('gets a merge confidence level for a given update when corresponding packageRule is in use', async () => {
         const datasource = NpmDatasource.id;
-        const depName = 'webpack';
+        const packageName = 'webpack';
         const newVersion = '3.8.1';
         const currentValue = '3.7.0';
         config.packageRules = [{ matchConfidence: ['high'] }];
         config.currentValue = currentValue;
-        config.depName = depName;
+        config.packageName = packageName;
         config.datasource = datasource;
         httpMock
           .scope('https://registry.npmjs.org')
@@ -2030,7 +2030,7 @@ describe('workers/repository/process/lookup/index', () => {
         httpMock
           .scope(apiBaseUrl)
           .get(
-            `/api/mc/json/${datasource}/${depName}/${currentValue}/${newVersion}`
+            `/api/mc/json/${datasource}/${packageName}/${currentValue}/${newVersion}`
           )
           .reply(200, { confidence: 'high' });
 
@@ -2043,9 +2043,9 @@ describe('workers/repository/process/lookup/index', () => {
         ]);
       });
 
-      it('doesnt get a merge confidence level when corresponding packageRule is not in use', async () => {
+      it('doesnt get a merge confidence level when no packageRule is set', async () => {
         config.currentValue = '3.7.0';
-        config.depName = 'webpack';
+        config.packageName = 'webpack';
         config.datasource = NpmDatasource.id;
         httpMock
           .scope('https://registry.npmjs.org')
@@ -2066,7 +2066,7 @@ describe('workers/repository/process/lookup/index', () => {
         const datasource = NpmDatasource.id;
         config.packageRules = [{ matchConfidence: ['high'] }];
         config.currentValue = '3.7.0';
-        config.depName = 'webpack';
+        config.packageName = 'webpack';
         config.datasource = datasource;
         hostRules.clear(); // reset merge confidence
         initConfig();

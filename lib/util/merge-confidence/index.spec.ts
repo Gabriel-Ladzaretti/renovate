@@ -204,7 +204,7 @@ describe('util/merge-confidence/index', () => {
             'minor'
           )
         ).toBe('neutral');
-        expect(logger.debug).toHaveBeenCalledWith(
+        expect(logger.warn).toHaveBeenCalledWith(
           expect.anything(),
           'error fetching merge confidence data'
         );
@@ -212,20 +212,20 @@ describe('util/merge-confidence/index', () => {
 
       it('throws on 403-Forbidden response from API', async () => {
         const datasource = 'npm';
-        const depName = 'renovate';
+        const packageName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.4.0';
         httpMock
           .scope(apiBaseUrl)
           .get(
-            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
+            `/api/mc/json/${datasource}/${packageName}/${currentVersion}/${newVersion}`
           )
           .reply(403);
 
         await expect(
           getMergeConfidenceLevel(
             datasource,
-            depName,
+            packageName,
             currentVersion,
             newVersion,
             'minor'
@@ -239,20 +239,20 @@ describe('util/merge-confidence/index', () => {
 
       it('throws on server error responses', async () => {
         const datasource = 'npm';
-        const depName = 'renovate';
+        const packageName = 'renovate';
         const currentVersion = '25.0.0';
         const newVersion = '25.4.0';
         httpMock
           .scope(apiBaseUrl)
           .get(
-            `/api/mc/json/${datasource}/${depName}/${currentVersion}/${newVersion}`
+            `/api/mc/json/${datasource}/${packageName}/${currentVersion}/${newVersion}`
           )
           .reply(503);
 
         await expect(
           getMergeConfidenceLevel(
             datasource,
-            depName,
+            packageName,
             currentVersion,
             newVersion,
             'minor'
@@ -277,13 +277,13 @@ describe('util/merge-confidence/index', () => {
       });
     });
 
-    describe('checkMergeConfidenceApiHealth()', () => {
+    describe('initMergeConfidence()', () => {
       it('using default base url if none is set', async () => {
         resetConfig();
         process.env = {};
         httpMock
           .scope(defaultApiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .get(`/api/mc/availability`)
           .reply(200);
 
         await expect(initMergeConfidence()).toResolve();
@@ -302,7 +302,7 @@ describe('util/merge-confidence/index', () => {
         };
         httpMock
           .scope(defaultApiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .get(`/api/mc/availability`)
           .reply(200);
 
         await expect(initMergeConfidence()).toResolve();
@@ -326,10 +326,7 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('resolves when token is valid', async () => {
-        httpMock
-          .scope(apiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
-          .reply(200);
+        httpMock.scope(apiBaseUrl).get(`/api/mc/availability`).reply(200);
 
         await expect(initMergeConfidence()).toResolve();
         expect(logger.debug).toHaveBeenCalledWith(
@@ -338,10 +335,7 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('throws on 403-Forbidden from mc API', async () => {
-        httpMock
-          .scope(apiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
-          .reply(403);
+        httpMock.scope(apiBaseUrl).get(`/api/mc/availability`).reply(403);
 
         await expect(initMergeConfidence()).rejects.toThrow(
           EXTERNAL_HOST_ERROR
@@ -353,10 +347,7 @@ describe('util/merge-confidence/index', () => {
       });
 
       it('throws on 5xx host errors from mc API', async () => {
-        httpMock
-          .scope(apiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
-          .reply(503);
+        httpMock.scope(apiBaseUrl).get(`/api/mc/availability`).reply(503);
 
         await expect(initMergeConfidence()).rejects.toThrow(
           EXTERNAL_HOST_ERROR
@@ -370,7 +361,7 @@ describe('util/merge-confidence/index', () => {
       it('throws on ECONNRESET', async () => {
         httpMock
           .scope(apiBaseUrl)
-          .get(`/api/mc/json/datasource/depName/currentVersion/newVersion`)
+          .get(`/api/mc/availability`)
           .replyWithError({ code: 'ECONNRESET' });
 
         await expect(initMergeConfidence()).rejects.toThrow(

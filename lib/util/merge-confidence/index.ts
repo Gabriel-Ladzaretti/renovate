@@ -238,5 +238,5 @@ function apiErrorHandler(err: any): void {
     throw new ExternalHostError(err, hostType);
   }
 
-  logger.debug({ err }, 'error fetching merge confidence data');
+  logger.warn({ err }, 'error fetching merge confidence data');
 }
