@@ -1224,8 +1224,6 @@ const options: RenovateOptions[] = [
     cli: false,
     env: false,
   },
-  /*
-   * Undocumented experimental feature
   {
     name: 'matchConfidence',
     description:
@@ -1241,7 +1239,6 @@ const options: RenovateOptions[] = [
     env: false,
     experimental: true,
   },
-  */
   {
     name: 'matchUpdateTypes',
     description:
