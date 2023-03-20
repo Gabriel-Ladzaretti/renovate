@@ -79,11 +79,11 @@ export async function generateUpdate(
   update.updateType =
     update.updateType ??
     getUpdateType(config, versioning, currentVersion, newVersion);
-  const { datasource, depName, packageRules } = config;
+  const { datasource, packageName, packageRules } = config;
   if (packageRules?.some((pr) => is.nonEmptyArray(pr.matchConfidence))) {
     update.mergeConfidenceLevel = await getMergeConfidenceLevel(
       datasource,
-      depName,
+      packageName,
       currentVersion,
       newVersion,
       update.updateType
