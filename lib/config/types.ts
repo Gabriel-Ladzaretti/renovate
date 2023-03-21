@@ -2,7 +2,7 @@ import type { LogLevel } from 'bunyan';
 import type { PlatformId } from '../constants';
 import type { HostRule } from '../types';
 import type { GitNoVerifyOption } from '../util/git/types';
-import type { MergeConfidence } from '../util/merge-confidence';
+import type { MergeConfidence } from '../util/merge-confidence/types';
 
 export type RenovateConfigStage =
   | 'global'

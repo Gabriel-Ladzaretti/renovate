@@ -5,7 +5,6 @@ import type { Release } from '../../../../modules/datasource';
 import type { VersioningApi } from '../../../../modules/versioning';
 import { getElapsedDays } from '../../../../util/date';
 import {
-  MergeConfidence,
   getMergeConfidenceLevel,
   isActiveConfidenceLevel,
   satisfiesConfidenceLevel,
@@ -83,12 +82,7 @@ export async function filterInternalChecks(
             updateType!
           )) ?? 'neutral';
         // TODO #7154
-        if (
-          !satisfiesConfidenceLevel(
-            confidenceLevel,
-            minimumConfidence! as MergeConfidence
-          )
-        ) {
+        if (!satisfiesConfidenceLevel(confidenceLevel, minimumConfidence!)) {
           logger.trace(
             { depName, check: 'minimumConfidence' },
             `Release ${candidateRelease.version} is pending status checks`
