@@ -195,6 +195,7 @@ export async function mergeRenovateConfig(
   if (is.nonEmptyArray(returnConfig.extends)) {
     configFileAndEnv.extends = [
       ...returnConfig.extends,
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       ...(configFileAndEnv.extends || []),
     ];
     delete returnConfig.extends;
