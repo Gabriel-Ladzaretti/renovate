@@ -3,6 +3,7 @@ import {
   fs,
   logger,
   mocked,
+  mockedFunction,
   partial,
   platform,
   scm,
@@ -11,6 +12,7 @@ import * as decrypt from '../../../config/decrypt';
 import { getConfig } from '../../../config/defaults';
 import * as _migrateAndValidate from '../../../config/migrate-validate';
 import * as _migrate from '../../../config/migration';
+import type { AllConfig } from '../../../config/types';
 import * as memCache from '../../../util/cache/memory';
 import * as repoCache from '../../../util/cache/repository';
 import { initRepoCache } from '../../../util/cache/repository/init';
@@ -21,6 +23,7 @@ import {
   checkForRepoConfigError,
   detectRepoFileConfig,
   mergeRenovateConfig,
+  mergeStaticRepoEnvConfig,
   setNpmTokenInNpmrc,
 } from './merge';
 
@@ -31,6 +34,13 @@ jest.mock('../onboarding/branch/onboarding-branch-cache');
 const migrate = mocked(_migrate);
 const migrateAndValidate = mocked(_migrateAndValidate);
 const onboardingCache = mocked(_onboardingCache);
+
+const readLocalFileMock = mockedFunction(fs.readLocalFile);
+const fileListMock = mockedFunction(scm.getFileList);
+const migrateConfigMock = mockedFunction(migrate.migrateConfig);
+const migrateAndValidateMock = mockedFunction(
+  migrateAndValidate.migrateAndValidate,
+);
 
 let config: RenovateConfig;
 
@@ -467,6 +477,192 @@ describe('workers/repository/init/merge', () => {
       };
       setNpmTokenInNpmrc(config);
       expect(config).toMatchObject({ npmrc: 'something_auth=token\n' });
+    });
+  });
+
+  describe('static repository config', () => {
+    const repoStaticConfigKey = 'RENOVATE_STATIC_REPO_CONFIG';
+
+    beforeEach(() => {
+      jest.restoreAllMocks();
+
+      migrateConfigMock.mockImplementation((c) => ({
+        isMigrated: true,
+        migratedConfig: c,
+      }));
+      migrateAndValidateMock.mockImplementationOnce((_, c) => {
+        return Promise.resolve({
+          ...c,
+          warnings: [],
+          errors: [],
+        });
+      });
+    });
+
+    describe('mergeStaticRepoEnvConfig()', () => {
+      type MergeRepoEnvTestCase = {
+        name: string;
+        currentConfig: AllConfig;
+        env: NodeJS.ProcessEnv;
+        want: AllConfig;
+      };
+
+      const testCases: MergeRepoEnvTestCase[] = [
+        {
+          name: 'it does nothing',
+          env: {},
+          currentConfig: { repositories: ['some/repo'] },
+          want: { repositories: ['some/repo'] },
+        },
+        {
+          name: 'it merges env with the current config',
+          env: { [repoStaticConfigKey]: '{"dependencyDashboard":true}' },
+          currentConfig: { repositories: ['some/repo'] },
+          want: {
+            dependencyDashboard: true,
+            repositories: ['some/repo'],
+          },
+        },
+        {
+          name: 'it ignores env with other renovate specific configuration options',
+          env: { RENOVATE_CONFIG: '{"dependencyDashboard":true}' },
+          currentConfig: { repositories: ['some/repo'] },
+          want: { repositories: ['some/repo'] },
+        },
+      ];
+
+      it.each(testCases)(
+        '$name',
+        async ({ env, currentConfig, want }: MergeRepoEnvTestCase) => {
+          const got = await mergeStaticRepoEnvConfig(currentConfig, env);
+
+          expect(got).toEqual(want);
+        },
+      );
+    });
+
+    describe('mergeRenovateConfig() with a static repository config', () => {
+      beforeEach(() => {
+        delete process.env[repoStaticConfigKey];
+
+        fileListMock.mockResolvedValueOnce(['renovate.json']);
+      });
+
+      type MergeRepoFileAndEnvConfigTestCase = {
+        name: string;
+        currentConfig: AllConfig;
+        repoFileConfig: AllConfig;
+        staticConfig: AllConfig;
+        wantConfig: AllConfig;
+      };
+
+      it.each<MergeRepoFileAndEnvConfigTestCase>([
+        {
+          name: 'it does nothing',
+          currentConfig: {},
+          repoFileConfig: {},
+          staticConfig: {},
+          wantConfig: {
+            renovateJsonPresent: true,
+            warnings: [],
+          },
+        },
+        {
+          name: 'it should resolve and use the repo file config when the static config is not set',
+          currentConfig: {},
+          repoFileConfig: {
+            extends: ['group:socketio'],
+          },
+          staticConfig: {},
+          wantConfig: {
+            description: ['Group socket.io packages.'],
+            packageRules: [
+              {
+                groupName: 'socket.io packages',
+                matchPackageNames: ['socket.io**'],
+              },
+            ],
+            renovateJsonPresent: true,
+            warnings: [],
+          },
+        },
+        {
+          name: 'it should resolve and use the static config when no repo file present',
+          currentConfig: {},
+          repoFileConfig: {},
+          staticConfig: { extends: ['group:socketio'] },
+          wantConfig: {
+            description: ['Group socket.io packages.'],
+            packageRules: [
+              {
+                groupName: 'socket.io packages',
+                matchPackageNames: ['socket.io**'],
+              },
+            ],
+            renovateJsonPresent: true,
+            warnings: [],
+          },
+        },
+        {
+          name: 'it should merge a static repo config into the repo config by appending it',
+          currentConfig: {},
+          repoFileConfig: {
+            extends: ['group:socketio'],
+            packageRules: [
+              {
+                matchConfidence: ['high', 'very high'],
+                groupName: 'high merge confidence',
+              },
+            ],
+          },
+          staticConfig: {
+            dependencyDashboard: true,
+            packageRules: [
+              {
+                groupName: 'my-custom-socketio-override',
+                matchPackageNames: ['socket.io**'],
+              },
+            ],
+          },
+          wantConfig: {
+            dependencyDashboard: true,
+            description: ['Group socket.io packages.'],
+            packageRules: [
+              {
+                groupName: 'socket.io packages',
+                matchPackageNames: ['socket.io**'],
+              },
+              {
+                groupName: 'high merge confidence',
+                matchConfidence: ['high', 'very high'],
+              },
+              {
+                groupName: 'my-custom-socketio-override',
+                matchPackageNames: ['socket.io**'],
+              },
+            ],
+            renovateJsonPresent: true,
+            warnings: [],
+          },
+        },
+      ])(
+        '$name',
+        async ({
+          staticConfig,
+          repoFileConfig,
+          currentConfig,
+          wantConfig,
+        }: MergeRepoFileAndEnvConfigTestCase) => {
+          readLocalFileMock.mockResolvedValueOnce(
+            JSON.stringify(repoFileConfig),
+          );
+          process.env[repoStaticConfigKey] = JSON.stringify(staticConfig);
+
+          const got = await mergeRenovateConfig(currentConfig);
+
+          expect(got).toStrictEqual(wantConfig);
+        },
+      );
     });
   });
 });
