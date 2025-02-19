@@ -1,4 +1,4 @@
-import type {  RenovateConfig } from '../../../config/types';
+import type { RenovateConfig } from '../../../config/types';
 import { checkOnboardingBranch } from '../onboarding/branch';
 import { mergeInheritedConfig } from './inherited';
 import { mergeRenovateConfig } from './merge';
