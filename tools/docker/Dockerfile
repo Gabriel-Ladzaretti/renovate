@@ -5,23 +5,23 @@ ARG BASE_IMAGE_TYPE=slim
 # --------------------------------------
 # slim image
 # --------------------------------------
-FROM ghcr.io/renovatebot/base-image:9.41.1@sha256:fd7d2da7969cec793bfb53771f2e3bfa59d7ac95fb9a691fb71bb86ff4d14cae AS slim-base
+FROM ghcr.io/renovatebot/base-image:9.41.2@sha256:f526e95f2aa9e823f16f5f0594f8ed2e26d99ae9474f207d1f208de857dbed38 AS slim-base
 
 # --------------------------------------
 # full image
 # --------------------------------------
-FROM ghcr.io/renovatebot/base-image:9.41.1-full@sha256:3de2fe2630339399fc80a4f4aa45fadc4177f2eb5fc9b65de165c399f72f8c98 AS full-base
+FROM ghcr.io/renovatebot/base-image:9.41.2-full@sha256:b38deeed490b9005777c56d70a5bee192af8df4b3108d8f6742197a3c702f629 AS full-base
 
 ENV RENOVATE_BINARY_SOURCE=global
 
 # --------------------------------------
 # build image
 # --------------------------------------
-FROM --platform=$BUILDPLATFORM ghcr.io/renovatebot/base-image:9.41.1@sha256:fd7d2da7969cec793bfb53771f2e3bfa59d7ac95fb9a691fb71bb86ff4d14cae AS build
+FROM --platform=$BUILDPLATFORM ghcr.io/renovatebot/base-image:9.41.2@sha256:f526e95f2aa9e823f16f5f0594f8ed2e26d99ae9474f207d1f208de857dbed38 AS build
 
 # We want a specific node version here
 # renovate: datasource=github-releases packageName=containerbase/node-prebuild versioning=node
-RUN install-tool node 22.13.1
+RUN install-tool node 22.14.0
 
 # corepack is too buggy 😞
 # renovate: datasource=npm
@@ -102,7 +102,7 @@ RUN ln -sf /usr/local/renovate/node /bin/node
 
 # ensure default base and cache directories exist.
 # /runner/cache is an alternative cache directory used in both Docker and microVMs.
-RUN mkdir -p /tmp/renovate/cache /runner/cache && \
+RUN mkdir -p /tmp/renovate/cache/renovate/repository /runner/cache/renovate/repository && \
   chmod -R 777 /tmp/renovate /runner
 
 # test
